@@ -9,10 +9,10 @@ import (
 )
 
 func registerAuthRoutes(api fiber.Router) {
-	alumni := api.Group("/alumni")
+	// alumni := api.Group("/alumni")
 
-	alumni.Get("/profile")
-	alumni.Post("/login")
-	alumni.Post("/logout")
-	alumni.Post("/refresh")
+	// alumni.Get("/profile")
+	// alumni.Post("/login")
+	// alumni.Post("/logout")
+	// alumni.Post("/refresh")
 }	

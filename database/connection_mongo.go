@@ -15,7 +15,7 @@ import (
 var DB *mongo.Database // Ganti dari *sql.DB ke *mongo.Database
 
 // ConnectDB membuat koneksi ke MongoDB
-func ConnectDB() {
+func ConnectMongoDB() {
 	// Ambil konfigurasi dari .env
 	mongoURI := config.GetEnv("MONGO_URI", "mongodb://localhost:27017")
 	dbName := config.GetEnv("MONGO_DB_NAME", "UAS_GO")

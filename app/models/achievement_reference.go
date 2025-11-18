@@ -1,19 +1,16 @@
 package models
-import (
-    "time"
-    "github.com/google/uuid"
-)
 
+import "time"
 
 type AchievementReference struct {
-    ID                uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-    StudentID         uuid.UUID `gorm:"type:uuid;not null"`
-    MongoAchievementID string    `gorm:"size:24;not null"`
-    Status            string    `gorm:"type:enum('draft','submitted','verified','rejected')"`
-    SubmittedAt       *time.Time
-    VerifiedAt        *time.Time
-    VerifiedBy        *uuid.UUID `gorm:"type:uuid"`
-    RejectionNote     string
-
-    Student Student `gorm:"foreignKey:StudentID"`
+    ID                 string    `json:"id"`
+    StudentID          string    `json:"student_id"`
+    MongoAchievementID string    `json:"mongo_achievement_id"`
+    Status             string    `json:"status"`
+    SubmittedAt        *time.Time `json:"submitted_at"`
+    VerifiedAt         *time.Time `json:"verified_at"`
+    VerifiedBy         string     `json:"verified_by"`
+    RejectionNote      string     `json:"rejection_note"`
+    CreatedAt          time.Time  `json:"created_at"`
+    UpdatedAt          time.Time  `json:"updated_at"`
 }

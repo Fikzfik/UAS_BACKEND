@@ -1,16 +1,13 @@
 package models
-import (
-	"github.com/google/uuid"
-)
+
+import "time"
 
 type Student struct {
-	ID				uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	UserID  		uuid.UUID `gorm:"type:uuid;not null;unique"`
-	StudentID  		string    `gorm:"size:20;unique;not null"`
-	ProgramStudy	string    `gorm:"size:100;not null"`
-	AcademicYear	string    `gorm:"size:20;not null"`
-	AdvisorID		uuid.UUID `gorm:"type:uuid"`
-
-	User		User	`gorm:"foreignKey:UserID"`
-	Advisor		Lecturer	`gorm:"foreignKey:AdvisorID"`
+    ID            string    `json:"id"`
+    UserID        string    `json:"user_id"`
+    StudentID     string    `json:"student_id"`
+    ProgramStudy  string    `json:"program_study"`
+    AcademicYear  string    `json:"academic_year"`
+    AdvisorID     string    `json:"advisor_id"`
+    CreatedAt     time.Time `json:"created_at"`
 }

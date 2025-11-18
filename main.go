@@ -3,12 +3,15 @@ package main
 import (
 	"UAS_GO/config"
 	"UAS_GO/route"
+	"UAS_GO/database"
 )
 
 func main() {
 	config.LoadEnv()
-	config.InitLogger()
-	// database.ConnectDB()
+	
+	database.ConnectPostgres()
+	database.ConnectMongoDB()
+	// database.AutoMigrate()
 	// database.MigrateTesting(database.DB) // uncomment jika perlu
 
 	app := config.NewApp()

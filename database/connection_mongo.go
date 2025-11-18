@@ -28,15 +28,15 @@ func ConnectMongoDB() {
 
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatalf("❌ Gagal koneksi ke MongoDB: %v", err)
+		log.Fatalf(" Gagal koneksi ke MongoDB: %v", err)
 	}
 
 	// Ping MongoDB untuk memastikan koneksi
 	if err := client.Ping(ctx, nil); err != nil {
-		log.Fatalf("❌ MongoDB tidak bisa di-ping: %v", err)
+		log.Fatalf(" MongoDB tidak bisa di-ping: %v", err)
 	}
 
-	fmt.Println("✅ Berhasil terhubung ke MongoDB!")
+	fmt.Println(" Berhasil terhubung ke MongoDB!")
 
 	// Simpan database global
 	DB = client.Database(dbName)

@@ -1,33 +1,38 @@
 package database
 
 import (
-	"fmt"
-	"log"
-	"os"
+    "database/sql"
+    "fmt"
+    "log"
+    "UAS_GO/config"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+    _ "github.com/lib/pq"
 )
 
-var PSQL *gorm.DB
+var PSQL *sql.DB
 
 func ConnectPostgres() {
-	host := os.Getenv("DB_HOST")
-	user := os.Getenv("DB_USER")
-	pass := os.Getenv("DB_PASS")
-	dbname := os.Getenv("DB_NAME")
-	port := os.Getenv("DB_PORT")
+    host := config.GetEnv("DB_HOST", "localhost")
+    port := config.GetEnv("DB_PORT", "5432")
+    user := config.GetEnv("DB_USER", "postgres")
+    pass := config.GetEnv("DB_PASS", "")
+    name := config.GetEnv("DB_NAME", "UAS_GO")
 
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta",
-		host, user, pass, dbname, port,
-	)
+    dsn := fmt.Sprintf(
+        "host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+        host, port, user, pass, name,
+    )
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("❌ Gagal koneksi ke PostgreSQL: %v", err)
-	}
+    db, err := sql.Open("postgres", dsn)
+    if err != nil {
+        log.Fatalf(" Gagal konek PostgreSQL: %v", err)
+    }
 
-	PSQL = db
-	fmt.Println("✅ Berhasil terhubung ke PostgreSQL!")
+    if err := db.Ping(); err != nil {
+        log.Fatalf(" PostgreSQL tidak merespon: %v", err)
+    }
+
+    fmt.Println(" Berhasil konek PostgreSQL!")
+
+    PSQL = db
 }

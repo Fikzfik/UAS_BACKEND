@@ -12,7 +12,7 @@ func main() {
 	database.ConnectPostgres()
 	database.ConnectMongoDB()
 	// database.AutoMigrate()
-	database.MigrateTesting(database.PSQL) // uncomment jika perlu
+	// database.MigrateTesting(database.PSQL) // uncomment jika perlu
 
 	app := config.NewApp()
 	route.RegisterRoutes(app)

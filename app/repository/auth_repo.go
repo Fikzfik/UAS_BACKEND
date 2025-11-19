@@ -3,6 +3,7 @@ package repository
 import (
 	"UAS_GO/app/models"
 	"UAS_GO/database"
+	
 )
 
 func FindUserByEmail(email string) (*models.User, error) {
@@ -49,6 +50,21 @@ func GetUserProfile(userID string) (*models.User, error) {
 	)
 
 	return user, err
+}
+
+func GetRoleNameByID(roleID string) (string, error) {
+    var roleName string
+
+    err := database.PSQL.QueryRow(
+        "SELECT name FROM roles WHERE id = $1",
+        roleID,
+    ).Scan(&roleName)
+
+    if err != nil {
+        return "", err
+    }
+
+    return roleName, nil
 }
 
 func LogoutUser(userID string) error {

@@ -1,44 +1,48 @@
 package middleware
 
 import (
-	"UAS_GO/helper" 
+	"UAS_GO/app/repository"
+	"UAS_GO/helper"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func AuthRequired() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			return helper.Unauthorized(c, "Token akses diperlukan")
-		}
+    return func(c *fiber.Ctx) error {
+        authHeader := c.Get("Authorization")
+        if authHeader == "" {
+            return helper.Unauthorized(c, "Token akses diperlukan")
+        }
 
-		tokenParts := strings.Split(authHeader, " ")
-		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			return helper.Unauthorized(c, "Format token tidak valid")
-		}
-		
-		tokenString := tokenParts[1]
+        tokenParts := strings.Split(authHeader, " ")
+        if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+            return helper.Unauthorized(c, "Format token tidak valid")
+        }
 
-		claims, err := helper.ValidateToken(tokenString)
-		if err != nil {
-			return helper.Unauthorized(c, "Token tidak valid atau expired")
-		}
+        tokenString := tokenParts[1]
+        claims, err := helper.ValidateToken(tokenString)
+        if err != nil {
+            return helper.Unauthorized(c, "Token tidak valid atau expired")
+        }
 
+        roleName, err := repository.GetRoleNameByID(claims.Role)
+        if err != nil {
+            return helper.Unauthorized(c, "Role tidak ditemukan")
+        }
 
-		c.Locals("user_id", claims.UserID)
-		c.Locals("email", claims.Email)
-		c.Locals("role", claims.Role) 
+        c.Locals("user_id", claims.UserID)
+        c.Locals("email", claims.Email)
+        c.Locals("role", roleName)
 
-		return c.Next()
-	}
+        return c.Next()
+    }
 }
+
 
 func AdminOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		role := c.Locals("role") 
-		
 		if roleStr, ok := role.(string); ok && roleStr == "admin" {
 			return c.Next()
 		}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"UAS_GO/app/models"
+	"UAS_GO/app/repository"
 	"UAS_GO/database"
 	"UAS_GO/helper" // <-- Pastikan ini diimpor
 	"database/sql"
@@ -13,14 +14,17 @@ import (
 
 type AuthService struct{}
 
+func (s *AuthService) VerifyToken(param1 string) (any, any) {
+	panic("unimplemented")
+}
+
 func NewAuthService() *AuthService {
 	return &AuthService{}
 }
 
-func AuthLoginHandler(c *fiber.Ctx) error {
-	// Instansiasi service di sini (atau bisa di-pass melalui dependency injection)
+func AuthLogin(c *fiber.Ctx) error {
 	authService := NewAuthService()
-
+	
 	var req models.LoginRequest
 
 	// Parsing body request
@@ -43,9 +47,47 @@ func AuthLoginHandler(c *fiber.Ctx) error {
 	// Respons sukses
 	return helper.APIResponse(c, fiber.StatusOK, "Login successful", resp)
 }
+func AuthGetProfile(c *fiber.Ctx) error {
 
+	// Extract user ID from JWT claims
+	userID := c.Locals("user_id")
+	if userID == nil {
+		return helper.Unauthorized(c, "user not authenticated")
+	}
+
+	// Call service to get user profile
+	profile, err := repository.GetUserProfile(userID.(string))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return helper.NotFound(c, "user not found")
+		}
+		return helper.InternalError(c, err.Error())
+	}
+
+	return helper.APIResponse(c, fiber.StatusOK, "Profile retrieved successfully", profile)
+}
+
+func AuthLogout(c *fiber.Ctx) error {
+	authService := NewAuthService()
+
+	// Extract user ID from JWT claims (assumes middleware sets it)
+	userID := c.Locals("user_id")
+	if userID == nil {
+		return helper.Unauthorized(c, "user not authenticated")
+	}
+
+	err := authService.logout(userID.(string))
+	if err != nil {
+		return helper.InternalError(c, err.Error())
+	}
+
+	return helper.APIResponse(c, fiber.StatusOK, "Logout successful", nil)
+}
 func (s *AuthService) Login(email, password string) (*models.LoginResponse, error) {
-	user, err := s.findUserByEmail(email)
+	// Query user from PostgreSQL
+	query := `SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = $1`
+	user := &models.User{}
+	err := database.PSQL.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.RoleID, &user.IsActive)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("user not found")
@@ -53,8 +95,7 @@ func (s *AuthService) Login(email, password string) (*models.LoginResponse, erro
 		return nil, err
 	}
 
-	// Panggil fungsi CheckPassword dari package helper (Asumsi ada di helper/password.go)
-	// Asumsi helper.CheckPassword ada dan melakukan verifikasi hash
+	// Verify password
 	if !helper.CheckPassword(password, user.PasswordHash) {
 		return nil, errors.New("invalid password")
 	}
@@ -63,39 +104,22 @@ func (s *AuthService) Login(email, password string) (*models.LoginResponse, erro
 		return nil, errors.New("user account is inactive")
 	}
 
-	// PANGGIL HELPER BARU UNTUK GENERATE TOKEN
+	// Generate JWT token
 	token, err := helper.GenerateToken(*user)
 	if err != nil {
 		return nil, err
 	}
 
 	return &models.LoginResponse{
-		User: *user,
+		User:  *user,
 		Token: token,
 	}, nil
 }
 
-func (s *AuthService) findUserByEmail(email string) (*models.User, error) {
-	query := `
-		SELECT id, username, email, password_hash, full_name, role_id, is_active, created_at, updated_at
-		FROM users
-		WHERE email = $1
-	`
 
-	user := &models.User{}
-	err := database.PSQL.QueryRow(query, email).Scan(
-		&user.ID,
-		&user.Username,
-		&user.Email,
-		&user.PasswordHash,
-		&user.FullName,
-		&user.RoleID,
-		&user.IsActive,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
 
-	return user, err
+func (s *AuthService) logout(userID string) error {
+	// Token invalidation logic can be implemented here
+	// For now, logout is handled client-side by removing the token
+	return nil
 }
-
-// Catatan: Fungsi generateJWTToken telah dihapus dari file ini.

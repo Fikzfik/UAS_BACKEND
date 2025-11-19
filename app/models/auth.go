@@ -33,8 +33,28 @@ type LoginResponse struct {
 
 // Payload JWT
 type JWTClaims struct {
-	UserID string `json:"user_id"` // gunakan string karena ObjectID di Mongo
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID 		string `json:"user_id"`
+	Email  		string `json:"email"`
+	Role   		string `json:"role"`
 	jwt.RegisteredClaims
+}
+
+type RefreshTokenRequest struct {
+    Token string `json:"token"`
+}
+
+type CreateUserRequest struct {
+    Email    string `json:"email" validate:"required,email"`
+    Password string `json:"password" validate:"required,min=6"`
+    RoleID   string `json:"role_id" validate:"required"`
+}
+
+type UpdateUserRequest struct {
+    Email    string `json:"email"`
+    RoleID   string `json:"role_id"`
+    IsActive bool   `json:"is_active"`
+}
+
+type UpdateUserRoleRequest struct {
+    RoleID string `json:"role_id" validate:"required"`
 }

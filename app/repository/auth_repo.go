@@ -50,3 +50,9 @@ func GetUserProfile(userID string) (*models.User, error) {
 
 	return user, err
 }
+
+func LogoutUser(userID string) error {
+	// Token invalidation logic can be implemented here
+	// For now, logout is handled client-side by removing the token
+	return nil
+}

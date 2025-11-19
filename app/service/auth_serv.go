@@ -4,12 +4,11 @@ import (
 	"UAS_GO/app/models"
 	"UAS_GO/app/repository"
 	"UAS_GO/database"
-	"UAS_GO/helper" // <-- Pastikan ini diimpor
+	"UAS_GO/helper" 
 	"database/sql"
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	// Tidak perlu import "github.com/golang-jwt/jwt/v5" di sini lagi
 )
 
 type AuthService struct{}
@@ -68,7 +67,6 @@ func AuthGetProfile(c *fiber.Ctx) error {
 }
 
 func AuthLogout(c *fiber.Ctx) error {
-	authService := NewAuthService()
 
 	// Extract user ID from JWT claims (assumes middleware sets it)
 	userID := c.Locals("user_id")
@@ -76,7 +74,7 @@ func AuthLogout(c *fiber.Ctx) error {
 		return helper.Unauthorized(c, "user not authenticated")
 	}
 
-	err := authService.logout(userID.(string))
+	err := repository.LogoutUser(userID.(string))
 	if err != nil {
 		return helper.InternalError(c, err.Error())
 	}
@@ -118,8 +116,59 @@ func (s *AuthService) Login(email, password string) (*models.LoginResponse, erro
 
 
 
-func (s *AuthService) logout(userID string) error {
-	// Token invalidation logic can be implemented here
-	// For now, logout is handled client-side by removing the token
-	return nil
+func (s *AuthService) RefreshToken(token string) (*models.LoginResponse, error) {
+	// Verify and parse the token
+	claims, err := helper.VerifyToken(token)
+	if err != nil {
+		return nil, errors.New("invalid or expired token")
+	}
+
+	// Query user from PostgreSQL to get fresh data
+	query := `SELECT id, email, password_hash, role_id, is_active FROM users WHERE id = $1`
+	user := &models.User{}
+	err = database.PSQL.QueryRow(query, claims.UserID).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.RoleID, &user.IsActive)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	if !user.IsActive {
+		return nil, errors.New("user account is inactive")
+	}
+
+	// Generate new JWT token
+	newToken, err := helper.GenerateToken(*user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.LoginResponse{
+		User:  *user,
+		Token: newToken,
+	}, nil
+}
+
+func AuthRefreshToken(c *fiber.Ctx) error {
+	authService := NewAuthService()
+
+	var req models.RefreshTokenRequest
+
+	// Parse request body
+	if err := c.BodyParser(&req); err != nil {
+		return helper.BadRequest(c, "Invalid request format")
+	}
+
+	if req.Token == "" {
+		return helper.BadRequest(c, "Token is required")
+	}
+
+	// Call service to refresh token
+	resp, err := authService.RefreshToken(req.Token)
+	if err != nil {
+		return helper.Unauthorized(c, err.Error())
+	}
+
+	return helper.APIResponse(c, fiber.StatusOK, "Token refreshed successfully", resp)
 }

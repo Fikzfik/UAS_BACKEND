@@ -39,3 +39,10 @@ func ValidateToken(tokenString string) (*models.JWTClaims, error) {
 
 	return nil, jwt.ErrInvalidKey
 }
+
+// VerifyToken validates a JWT token and returns claims
+func VerifyToken(tokenString string) (*models.JWTClaims, error) {
+	return ValidateToken(tokenString)
+}
+
+

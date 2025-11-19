@@ -14,4 +14,5 @@ func registerAuthRoutes(api fiber.Router) {
 
 	protected.Get("/profile", service.AuthGetProfile)
 	protected.Post("/logout", service.AuthLogout)
+	protected.Post("/refresh", service.AuthRefreshToken)
 }

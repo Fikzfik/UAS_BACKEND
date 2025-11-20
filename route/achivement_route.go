@@ -9,8 +9,8 @@ import (
 func registerAchivementRoutes(api fiber.Router) {
 	r := api.Group("/achievements", middleware.AuthRequired())
 
-	r.Get("/", service.GetAllAchievements)         // All, filtered by role
-	// r.Get("/:id", service.GetAchievementDetail) // Detail
+	r.Get("/", service.GetAllAchievements)     
+	r.Get("/:id", service.GetAchievementById) 
 
 	r.Post("/", middleware.MahasiswaOnly(), service.CreateAchievement) // Create
 	// r.Put("/:id", middleware.MahasiswaOnly(), service.UpdateAchievement)

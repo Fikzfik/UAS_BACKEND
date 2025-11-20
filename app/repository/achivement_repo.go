@@ -41,6 +41,21 @@ func GetAllAchievements(studentId string, achType string) ([]models.Achievement,
 	return results, nil
 }
 
+// Get achievement by its MongoDB ID
+func GetAchievementById(id string) (*models.Achievement, error) {
+	collection := database.MongoDB.Collection("achievements")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+	var result models.Achievement
+	err = collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&result)
+	if err != nil {
+		return nil, err
+	}	
+	return &result, nil
+}
+
 func AchievementInsertMongo(a *models.Achievement) (primitive.ObjectID, error) {
 	collection := database.MongoDB.Collection("achievements")
 

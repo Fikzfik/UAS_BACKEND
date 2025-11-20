@@ -9,8 +9,9 @@ import (
     _ "github.com/lib/pq"
 )
 
-var PSQL *sql.DB
+var PSQL *sql.DB    // Variabel global untuk koneksi PostgreSQL
 
+// ConnectPostgres menghubungkan ke PostgreSQL dan menginisialisasi variabel PSQL
 func ConnectPostgres() {
     host := config.GetEnv("DB_HOST", "localhost")
     port := config.GetEnv("DB_PORT", "5432")

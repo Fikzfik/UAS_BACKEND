@@ -6,7 +6,7 @@ func RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1")
 	registerAuthRoutes(api)
 	registerAdminRoutes(api)
-	// registerAchivRoutes(api)
+	registerAchivementRoutes(api)
 	// registerStudentRoutes(api)
 	// registerlecturerRoutes(api)
 	// registerReportRoutes(api)

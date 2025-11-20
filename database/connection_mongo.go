@@ -12,9 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var DB *mongo.Database // Ganti dari *sql.DB ke *mongo.Database
+var MongoDB *mongo.Database // Variabel global untuk database MongoDB
 
-// ConnectDB membuat koneksi ke MongoDB
+// ConnectDB menghubungkan ke MongoDB dan menginisialisasi variabel MongoDB
 func ConnectMongoDB() {
 	// Ambil konfigurasi dari .env
 	mongoURI := config.GetEnv("MONGO_URI", "mongodb://localhost:27017")
@@ -22,7 +22,7 @@ func ConnectMongoDB() {
 
 	// Siapkan client MongoDB
 	clientOptions := options.Client().ApplyURI(mongoURI)
-
+	
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -39,5 +39,5 @@ func ConnectMongoDB() {
 	fmt.Println(" Berhasil terhubung ke MongoDB!")
 
 	// Simpan database global
-	DB = client.Database(dbName)
+	MongoDB = client.Database(dbName)
 }

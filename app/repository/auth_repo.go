@@ -3,7 +3,10 @@ package repository
 import (
 	"UAS_GO/app/models"
 	"UAS_GO/database"
-	
+	"context"
+	"database/sql"
+	"errors"
+	"time"
 )
 
 func FindUserByEmail(email string) (*models.User, error) {
@@ -71,4 +74,53 @@ func LogoutUser(userID string) error {
 	// Token invalidation logic can be implemented here
 	// For now, logout is handled client-side by removing the token
 	return nil
+}
+
+func GetStudentIDByUserID(userID string) (string, error) {
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    query := `
+        SELECT id 
+        FROM students 
+        WHERE user_id = $1
+        LIMIT 1
+    `
+
+    var studentID string
+    err := database.PSQL.QueryRowContext(ctx, query, userID).Scan(&studentID)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return "", errors.New("student not found")
+        }
+        return "", err
+    }
+
+    return studentID, nil
+}
+
+func GetAchievementReferenceByMongoID(mongoID string) (*models.AchievementReference, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT id, student_id, mongo_achievement_id, status,
+		       submitted_at, verified_at, verified_by,
+		       rejection_note, created_at, updated_at
+		FROM achievement_references
+		WHERE mongo_achievement_id = $1
+	`
+
+	var r models.AchievementReference
+	err := database.PSQL.QueryRowContext(ctx, query, mongoID).Scan(
+		&r.ID, &r.StudentID, &r.MongoAchievementID, &r.Status,
+		&r.SubmittedAt, &r.VerifiedAt, &r.VerifiedBy,
+		&r.RejectionNote, &r.CreatedAt, &r.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &r, nil
 }

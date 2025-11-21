@@ -16,10 +16,10 @@ func registerAchivementRoutes(api fiber.Router) {
 	r.Put("/:id", middleware.MahasiswaOnly(), service.UpdateAchievement)
 	r.Delete("/:id", middleware.MahasiswaOnly(), service.DeleteAchievement)
 
-	// r.Post("/:id/submit", middleware.MahasiswaOnly(), service.SubmitAchievement)
+	r.Post("/:id/submit", middleware.MahasiswaOnly(), service.SubmitAchievement)
 
-	// r.Post("/:id/verify", middleware.DosenWaliOnly(), service.VerifyAchievement)
-	// r.Post("/:id/reject", middleware.DosenWaliOnly(), service.RejectAchievement)
+	r.Post("/:id/verify", middleware.DosenWaliOnly(), service.VerifyAchievement)
+	r.Post("/:id/reject", middleware.DosenWaliOnly(), service.RejectAchievement)
 
 	// r.Get("/:id/history", service.GetAchievementHistory)
 

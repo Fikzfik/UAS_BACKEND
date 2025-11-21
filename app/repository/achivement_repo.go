@@ -4,6 +4,10 @@ import (
 	"UAS_GO/app/models"
 	"UAS_GO/database"
 	"context"
+	"database/sql"
+	"fmt"
+
+	// "database/sql"
 	"errors"
 	"time"
 
@@ -77,7 +81,7 @@ func AchievementInsertReference(studentID string, mongoID primitive.ObjectID) er
 	query := `
 		INSERT INTO achievement_references 
 		(id, student_id, mongo_achievement_id, status, created_at, updated_at)
-		VALUES (uuid_generate_v4(), $1, $2, 'submitted', NOW(), NOW())
+		VALUES (uuid_generate_v4(), $1, $2, 'draft', NOW(), NOW())
 	`
 
 	_, err := database.PSQL.Exec(query, studentID, mongoID.Hex())
@@ -155,41 +159,61 @@ func AchievementUpdateMongoMap(id string, updates map[string]any) error {
 	return nil
 }
 
-func AchievementSoftDeleteMongo(id string) error {
-	collection := database.MongoDB.Collection("achievements")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+
+// Get reference by mongo_achievement_id
+func GetAchievementReferenceByMongoID(mongoID string) (*models.AchievementReference, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(id)
+	query := `
+		SELECT id, student_id, mongo_achievement_id, status,
+		       submitted_at, verified_at, verified_by,
+		       rejection_note, created_at, updated_at
+		FROM achievement_references
+		WHERE mongo_achievement_id = $1
+		LIMIT 1
+	`
+
+	var r models.AchievementReference
+	err := database.PSQL.QueryRowContext(ctx, query, mongoID).Scan(
+		&r.ID, &r.StudentID, &r.MongoAchievementID, &r.Status,
+		&r.SubmittedAt, &r.VerifiedAt, &r.VerifiedBy,
+		&r.RejectionNote, &r.CreatedAt, &r.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// Hard delete reference by its reference UUID (NOT by mongoID)
+func AchievementHardDeleteReference(referenceID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := database.PSQL.ExecContext(ctx,
+		"DELETE FROM achievement_references WHERE id = $1", referenceID)
 	if err != nil {
 		return err
 	}
-
-	update := bson.M{
-		"$set": bson.M{
-			"isDeleted": true,
-			"deletedAt": time.Now(),
-		},
-	}
-
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+	ra, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
-
-	if result.MatchedCount == 0 {
-		return mongo.ErrNoDocuments
+	if ra == 0 {
+		return sql.ErrNoRows
 	}
-
 	return nil
 }
 
-func AchievementHardDeleteMongo(id string) error {
+
+func AchievementHardDeleteMongo(mongoID string) error {
 	collection := database.MongoDB.Collection("achievements")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(id)
+	objID, err := primitive.ObjectIDFromHex(mongoID)
 	if err != nil {
 		return err
 	}
@@ -198,10 +222,163 @@ func AchievementHardDeleteMongo(id string) error {
 	if err != nil {
 		return err
 	}
-
 	if result.DeletedCount == 0 {
 		return mongo.ErrNoDocuments
 	}
+	return nil
+}
+
+
+
+
+func SubmitAchievement(referenceID string, studentID string) error {
+	query := `
+		UPDATE achievement_references
+		SET status = 'submitted',
+		    submitted_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1
+		AND student_id = $2
+		RETURNING id
+	`
+
+	var id string
+	err := database.PSQL.QueryRow(query, referenceID, studentID).Scan(&id)
+	if err != nil {
+		return err
+	}
 
 	return nil
+}
+
+func UpdateReferenceStatusSubmitted(mongoID string) error {
+	query := `
+		UPDATE achievement_references
+		SET status = 'submitted',
+		    submitted_at = NOW(),
+		    updated_at = NOW()
+		WHERE mongo_achievement_id = $1
+	`
+
+	_, err := database.PSQL.Exec(query, mongoID)
+	return err
+}
+
+func VerifyAchievementMongo(id string, points int, dosenID string) error {
+    collection := database.MongoDB.Collection("achievements")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    objID, err := primitive.ObjectIDFromHex(id)
+    if err != nil {
+        return err
+    }
+
+    update := bson.M{
+        "$set": bson.M{
+            "points":     points,
+            "verifiedAt": time.Now(),
+            "verifiedBy": dosenID,
+            "updatedAt":  time.Now(),
+        },
+    }
+
+    _, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+    return err
+}
+
+func VerifyAchievementReference(refID string, dosenID string) error {
+    query := `
+        UPDATE achievement_references
+        SET status = 'verified',
+            verified_at = NOW(),
+            verified_by = $2,
+            updated_at = NOW()
+        WHERE id = $1
+    `
+
+    fmt.Println("DEBUG VerifyAchievementReference")
+    fmt.Println("Query:", query)
+    fmt.Println("refID:", refID)
+    fmt.Println("dosenID:", dosenID)
+
+    res, err := database.PSQL.Exec(query, refID, dosenID)
+    if err != nil {
+        fmt.Println("Postgres ERROR:", err.Error())  // ERROR ASLI di log
+        return err
+    }
+
+    rows, err := res.RowsAffected()
+    fmt.Println("RowsAffected:", rows, "err:", err)
+
+    if rows == 0 {
+        return errors.New("ERROR: no rows affected — reference ID not found OR lecturer not authorized")
+    }
+
+    return nil
+}
+
+
+
+
+func RejectAchievementMongo(id, note, dosenID string) error {
+    collection := database.MongoDB.Collection("achievements")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    objID, err := primitive.ObjectIDFromHex(id)
+    if err != nil {
+        return err
+    }
+
+    update := bson.M{
+        "$set": bson.M{
+            "rejectionNote": note,
+            "verifiedAt":    time.Now(),
+            "verifiedBy":    dosenID,
+            "updatedAt":     time.Now(),
+        },
+    }
+
+    _, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+    return err
+}
+
+func RejectAchievementReference(refID string, note, dosenID string) error {
+    query := `
+        UPDATE achievement_references
+        SET status = 'rejected',
+            rejection_note = $2,
+            verified_by = $3,
+            verified_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+    `
+    res, err := database.PSQL.Exec(query, refID, note, dosenID)
+    if err != nil {
+        return err
+    }
+
+    rows, _ := res.RowsAffected()
+    if rows == 0 {
+        return errors.New("reference not found or not updated")
+    }
+
+    return nil
+}
+
+
+func IsLecturerAdvisorOfStudent(lecturerID string, studentID string) (bool, error) {
+    var exists bool
+    query := `
+        SELECT EXISTS (
+            SELECT 1 FROM students
+            WHERE id = $1 AND advisor_id = $2
+        )
+    `
+    err := database.PSQL.QueryRow(query, studentID, lecturerID).Scan(&exists)
+    if err != nil {
+        return false, err
+    }
+    return exists, nil
 }

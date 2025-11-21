@@ -99,28 +99,15 @@ func GetStudentIDByUserID(userID string) (string, error) {
     return studentID, nil
 }
 
-func GetAchievementReferenceByMongoID(mongoID string) (*models.AchievementReference, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func GetLecturerIDByUserID(userID string) (string, error) {
+    var lecturerID string
 
-	query := `
-		SELECT id, student_id, mongo_achievement_id, status,
-		       submitted_at, verified_at, verified_by,
-		       rejection_note, created_at, updated_at
-		FROM achievement_references
-		WHERE mongo_achievement_id = $1
-	`
+    err := database.PSQL.QueryRow(`
+        SELECT id FROM lecturers WHERE user_id = $1 LIMIT 1
+    `, userID).Scan(&lecturerID)
 
-	var r models.AchievementReference
-	err := database.PSQL.QueryRowContext(ctx, query, mongoID).Scan(
-		&r.ID, &r.StudentID, &r.MongoAchievementID, &r.Status,
-		&r.SubmittedAt, &r.VerifiedAt, &r.VerifiedBy,
-		&r.RejectionNote, &r.CreatedAt, &r.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &r, nil
+    if err != nil {
+        return "", err
+    }
+    return lecturerID, nil
 }

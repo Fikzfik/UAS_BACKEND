@@ -36,7 +36,6 @@ func GetAchievementById(c *fiber.Ctx) error {
 	return helper.APIResponse(c, 200, "Success", data)
 }
 
-
 func CreateAchievement(c *fiber.Ctx) error {
 	// parse body as generic map first so we can detect forbidden fields
 	var bodyMap map[string]any
@@ -119,7 +118,6 @@ func CreateAchievement(c *fiber.Ctx) error {
 	return helper.APIResponse(c, fiber.StatusCreated, "Achievement submitted",
 		map[string]any{"id": mongoID})
 }
-
 
 // update achievement oleh mahasiswa (partial update)
 func UpdateAchievement(c *fiber.Ctx) error {
@@ -214,7 +212,7 @@ func UpdateAchievement(c *fiber.Ctx) error {
 
 // update achievement oleh mahasiswa (partial update)
 func DeleteAchievement(c *fiber.Ctx) error {
-	id := c.Params("id")
+	id := c.Params("id") // mongoID
 
 	// Ambil user_id dari JWT
 	currentUserID, ok := c.Locals("user_id").(string)
@@ -228,7 +226,7 @@ func DeleteAchievement(c *fiber.Ctx) error {
 		return helper.Forbidden(c, "Student profile not found")
 	}
 
-	// Ambil achievement dari MongoDB
+	// Ambil document Mongo
 	existing, err := repository.GetAchievementByIdMongo(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -242,25 +240,211 @@ func DeleteAchievement(c *fiber.Ctx) error {
 		return helper.Forbidden(c, "You are not allowed to delete this achievement")
 	}
 
-	// Cek status boleh dihapus hanya draft
+	// Cek reference di Postgres
 	ref, err := repository.GetAchievementReferenceByMongoID(id)
 	if err != nil {
-		return helper.NotFound(c, "Achievement reference not found")
+		return helper.InternalError(c, "Reference not found")
 	}
 
 	if ref.Status != "draft" {
 		return helper.BadRequest(c, "Only draft achievements can be deleted")
 	}
 
-	// Soft delete Mongo
-	if err := repository.AchievementSoftDeleteMongo(id); err != nil {
-		return helper.InternalError(c, "Failed to delete achievement")
+	// 1) HAPUS Mongo DULU
+	if err := repository.AchievementHardDeleteMongo(id); err != nil {
+		return helper.InternalError(c, "Failed to delete achievement in MongoDB")
 	}
 
-	// Soft delete reference in Postgres
-	if err := repository.AchievementHardDeleteMongo(id); err != nil {
+	// 2) HAPUS reference Postgres PAKAI reference ID
+	if err := repository.AchievementHardDeleteReference(ref.ID); err != nil {
 		return helper.InternalError(c, "Failed to delete achievement reference")
 	}
 
 	return helper.APIResponse(c, fiber.StatusOK, "Achievement deleted successfully", nil)
 }
+
+func SubmitAchievement(c *fiber.Ctx) error {
+	id := c.Params("id") // mongo achievement ID
+
+	// ambil user_id dari JWT context
+	currentUserID, ok := c.Locals("user_id").(string)
+	if !ok || currentUserID == "" {
+		return helper.Unauthorized(c, "Unauthorized")
+	}
+
+	// konversi user_id -> student.id PostgreSQL
+	studentID, err := repository.GetStudentIDByUserID(currentUserID)
+	if err != nil {
+		return helper.Forbidden(c, "Student profile not found")
+	}
+
+	// cek achievement di MongoDB
+	existing, err := repository.GetAchievementByIdMongo(id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return helper.NotFound(c, "Achievement not found")
+		}
+		return helper.BadRequest(c, "Invalid achievement ID")
+	}
+
+	// cek kepemilikan
+	if existing.StudentID != studentID {
+		return helper.Forbidden(c, "You are not allowed to submit this achievement")
+	}
+
+	// cek reference di PostgreSQL
+	ref, err := repository.GetAchievementReferenceByMongoID(id)
+	if err != nil {
+		return helper.NotFound(c, "Achievement reference not found")
+	}
+
+	// tidak boleh submit ulang
+	if ref.Status == "submitted" || ref.Status == "verified" {
+		return helper.BadRequest(c, "Achievement already submitted")
+	}
+
+	// update MongoDB: hanya update updatedAt
+	updateMongo := map[string]any{
+		"updatedAt": time.Now(),
+	}
+
+	err = repository.AchievementUpdateMongoMap(id, updateMongo)
+	if err != nil {
+		return helper.InternalError(c, "Failed to update achievement in MongoDB")
+	}
+
+	// update PostgreSQL: status + submitted_at
+	err = repository.UpdateReferenceStatusSubmitted(id)
+	if err != nil {
+		return helper.InternalError(c, "Failed to update achievement reference")
+	}
+
+	return helper.APIResponse(
+		c,
+		fiber.StatusOK,
+		"Achievement submitted successfully",
+		nil,
+	)
+}
+
+func VerifyAchievement(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	// Get dosen user ID
+	currentUserID, ok := c.Locals("user_id").(string)
+	if !ok || currentUserID == "" {
+		return helper.Unauthorized(c, "Unauthorized")
+	}
+
+	// Get lecturer ID (from users table → lecturers.user_id)
+	lecturerID, err := repository.GetLecturerIDByUserID(currentUserID)
+	if err != nil {
+		return helper.Forbidden(c, "Lecturer profile not found")
+	}
+
+	// Get reference
+	ref, err := repository.GetAchievementReferenceByMongoID(id)
+	if err != nil {
+		return helper.NotFound(c, "Achievement reference not found")
+	}
+
+	// Only submitted can be verified
+	if ref.Status != "submitted" {
+		return helper.BadRequest(c, "Only submitted achievements can be verified")
+	}
+	if ref.Status != "verified" {
+		return helper.BadRequest(c, "this achievements has already verified")
+	}
+
+	// Verify dosen advisor harus wali mahasiswa
+	isAdvisor, err := repository.IsLecturerAdvisorOfStudent(lecturerID, ref.StudentID)
+	if err != nil {
+		return helper.InternalError(c, "Error verifying advisor relationship")
+	}
+	if !isAdvisor {
+		return helper.Forbidden(c, "You are not the academic advisor for this student")
+	}
+
+	// Parse points
+	var body struct {
+		Points int `json:"points"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return helper.BadRequest(c, "Invalid JSON")
+	}
+	if body.Points <= 0 {
+		return helper.BadRequest(c, "Points must be > 0")
+	}
+
+	// Update Mongo
+	if err := repository.VerifyAchievementMongo(id, body.Points, currentUserID); err != nil {
+		return helper.InternalError(c, "Failed to update MongoDB")
+	}
+	fmt.Println("REF DEBUG:", ref.ID, ref.MongoAchievementID, ref.Status)
+	// Update Postgres
+	if err := repository.VerifyAchievementReference(ref.ID, currentUserID); err != nil {
+		return helper.InternalError(c, err.Error())
+	}
+
+	return helper.APIResponse(c, 200, "Achievement verified", nil)
+}
+
+func RejectAchievement(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	// Get current user (dosen)
+	currentUserID, ok := c.Locals("user_id").(string)
+	if !ok || currentUserID == "" {
+		return helper.Unauthorized(c, "Unauthorized")
+	}
+
+	// Convert → lecturer.id
+	lecturerID, err := repository.GetLecturerIDByUserID(currentUserID)
+	if err != nil {
+		return helper.Forbidden(c, "Lecturer profile not found")
+	}
+
+	// Get reference
+	ref, err := repository.GetAchievementReferenceByMongoID(id)
+	if err != nil {
+		return helper.NotFound(c, "Achievement reference not found")
+	}
+
+	if ref.Status != "submitted" {
+		return helper.BadRequest(c, "Only submitted achievements can be rejected")
+	}
+
+	// advisor validation
+	isAdvisor, err := repository.IsLecturerAdvisorOfStudent(lecturerID, ref.StudentID)
+	if err != nil {
+		return helper.InternalError(c, "Error verifying advisor relationship")
+	}
+	if !isAdvisor {
+		return helper.Forbidden(c, "You are not the academic advisor for this student")
+	}
+
+	// Parse rejection note
+	var body struct {
+		Note string `json:"note"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return helper.BadRequest(c, "Invalid JSON")
+	}
+	if strings.TrimSpace(body.Note) == "" {
+		return helper.BadRequest(c, "Rejection note is required")
+	}
+
+	// Update Mongo
+	if err := repository.RejectAchievementMongo(id, body.Note, currentUserID); err != nil {
+		return helper.InternalError(c, "Failed to update MongoDB")
+	}
+
+	// Update Postgres
+	if err := repository.RejectAchievementReference(ref.ID, body.Note, currentUserID); err != nil {
+		return helper.InternalError(c, "Failed to update reference")
+	}
+
+	return helper.APIResponse(c, 200, "Achievement rejected", nil)
+}
+
+

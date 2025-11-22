@@ -1,6 +1,10 @@
 package helper
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 // Standard API response format
 func APIResponse(c *fiber.Ctx, status int, message string, data interface{}) error {
@@ -38,4 +42,19 @@ func Unprocessable(c *fiber.Ctx, msg string) error {
 
 func InternalError(c *fiber.Ctx, msg string) error {
 	return APIResponse(c, fiber.StatusInternalServerError, msg, nil)
+}
+
+func GetIntQuery(c *fiber.Ctx, key string, defaultValue int) int {
+	val := c.Query(key)
+
+	if val == "" {
+		return defaultValue
+	}
+
+	num, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultValue
+	}
+
+	return num
 }

@@ -17,14 +17,21 @@ func GetAllLecturers(c *fiber.Ctx) error {
 }
 
 func GetLecturerAdvisees(c *fiber.Ctx) error {
-	lecturerID := c.Params("id")
-	if lecturerID == "" {
-		return helper.BadRequest(c, "Lecturer id is required")
-	}
+    lecturerID := c.Params("id")
 
-	advisees, err := repository.GetAdviseesByLecturerID(lecturerID)
-	if err != nil {
-		return helper.InternalError(c, err.Error())
-	}
-	return helper.APIResponse(c, fiber.StatusOK, "Success", advisees)
+    // pagination
+    page := helper.GetIntQuery(c, "page", 1)
+    limit := helper.GetIntQuery(c, "limit", 10)
+    offset := (page - 1) * limit
+
+    results, err := repository.GetAdviseeAchievementsByLecturerID(lecturerID, limit, offset)
+    if err != nil {
+        return helper.InternalError(c, err.Error())
+    }
+
+    return helper.APIResponse(c, 200, "Success", map[string]any{
+        "page":    page,
+        "limit":   limit,
+        "results": results,
+    })
 }

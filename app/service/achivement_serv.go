@@ -6,6 +6,9 @@ import (
 	"UAS_GO/helper"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,15 +40,19 @@ func GetAchievementById(c *fiber.Ctx) error {
 }
 
 func CreateAchievement(c *fiber.Ctx) error {
-	// parse body as generic map first so we can detect forbidden fields
+	// Parse body as map
 	var bodyMap map[string]any
 	if err := c.BodyParser(&bodyMap); err != nil {
 		return helper.BadRequest(c, "Invalid JSON body")
 	}
 
-	// list of forbidden fields that client must not send
-	forbidden := []string{
+	// STRICT FORBIDDEN → harus ditolak
+	strictForbidden := []string{
 		"_id", "id",
+	}
+
+	// STRIP FIELDS → dibuang diam-diam (NULL-kan)
+	stripFields := []string{
 		"studentId", "student_id",
 		"points",
 		"status",
@@ -54,40 +61,42 @@ func CreateAchievement(c *fiber.Ctx) error {
 		"rejectionNote", "rejection_note",
 		"createdAt", "created_at",
 		"updatedAt", "updated_at",
+		"attachments", // ❗ attachments tidak boleh dikirim saat create
 	}
 
-	// collect any forbidden fields present in request
-	var present []string
-	for _, f := range forbidden {
+	// Reject strictly forbidden fields
+	for _, f := range strictForbidden {
 		if _, ok := bodyMap[f]; ok {
-			present = append(present, f)
+			return helper.BadRequest(c,
+				fmt.Sprintf("You are not allowed to set the following field: %s", f),
+			)
 		}
 	}
-	if len(present) > 0 {
-		return helper.BadRequest(c, fmt.Sprintf(
-			"You are not allowed to set the following fields: %s",
-			strings.Join(present, ", "),
-		))
+
+	// Remove strip fields
+	for _, f := range stripFields {
+		delete(bodyMap, f)
 	}
 
-	// Get authenticated user_id from JWT context
+	// Get authenticated user_id
 	currentUserID, ok := c.Locals("user_id").(string)
 	if !ok || currentUserID == "" {
 		return helper.Unauthorized(c, "Unauthorized")
 	}
 
-	// Convert user_id -> students.id (UUID) from Postgres
+	// Convert user_id → studentID
 	studentID, err := repository.GetStudentIDByUserID(currentUserID)
 	if err != nil {
 		return helper.Forbidden(c, "Student profile not found")
 	}
 
-	// Convert bodyMap to models.Achievement
-	var req models.Achievement
+	// Convert bodyMap → struct
 	b, err := json.Marshal(bodyMap)
 	if err != nil {
 		return helper.BadRequest(c, "Invalid request payload")
 	}
+
+	var req models.Achievement
 	if err := json.Unmarshal(b, &req); err != nil {
 		return helper.BadRequest(c, "Invalid request payload structure")
 	}
@@ -97,27 +106,37 @@ func CreateAchievement(c *fiber.Ctx) error {
 		return helper.BadRequest(c, "title is required")
 	}
 
-	// Assign server-controlled fields
+	// Force server-controlled fields
 	req.StudentID = studentID
 	now := time.Now()
 	req.CreatedAt = now
 	req.UpdatedAt = now
-	req.Points = 0 // force points to zero, cannot be overridden
+	req.Points = 0
 
-	// Insert to MongoDB
+	// Ensure attachments is array (avoid null)
+	if req.Attachments == nil {
+		req.Attachments = []models.Attachment{}
+	}
+
+	// Insert into Mongo
 	mongoID, err := repository.AchievementInsertMongo(&req)
 	if err != nil {
 		return helper.InternalError(c, "Failed to create achievement")
 	}
 
-	// Insert reference to Postgres
+	// Insert reference into Postgres
 	if err := repository.AchievementInsertReference(studentID, mongoID); err != nil {
 		return helper.InternalError(c, "Failed to create achievement reference")
 	}
 
-	return helper.APIResponse(c, fiber.StatusCreated, "Achievement submitted",
-		map[string]any{"id": mongoID})
+	return helper.APIResponse(
+		c,
+		fiber.StatusCreated,
+		"Achievement submitted",
+		map[string]any{"id": mongoID},
+	)
 }
+
 
 // update achievement oleh mahasiswa (partial update)
 func UpdateAchievement(c *fiber.Ctx) error {
@@ -352,9 +371,8 @@ func VerifyAchievement(c *fiber.Ctx) error {
 	if ref.Status != "submitted" {
 		return helper.BadRequest(c, "Only submitted achievements can be verified")
 	}
-	if ref.Status != "verified" {
-		return helper.BadRequest(c, "this achievements has already verified")
-	}
+
+
 
 	// Verify dosen advisor harus wali mahasiswa
 	isAdvisor, err := repository.IsLecturerAdvisorOfStudent(lecturerID, ref.StudentID)
@@ -448,3 +466,233 @@ func RejectAchievement(c *fiber.Ctx) error {
 }
 
 
+func UploadAchievementFile(c *fiber.Ctx) error {
+    id := c.Params("id")
+
+    // Ambil user_id dari JWT
+    currentUserID, ok := c.Locals("user_id").(string)
+    if !ok || currentUserID == "" {
+        return helper.Unauthorized(c, "Unauthorized")
+    }
+
+    // Konversi user -> studentID
+    studentID, err := repository.GetStudentIDByUserID(currentUserID)
+    if err != nil {
+        return helper.Forbidden(c, "Student profile not found")
+    }
+
+    // Cek dokumen Mongo + kepemilikan
+    existing, err := repository.GetAchievementByIdMongo(id)
+    if err != nil {
+        return helper.NotFound(c, "Achievement not found")
+    }
+    if existing.StudentID != studentID {
+        return helper.Forbidden(c, "You are not allowed to upload attachment for this achievement")
+    }
+
+    // Ambil file dari form
+    fileHeader, err := c.FormFile("file")
+    if err != nil {
+        return helper.BadRequest(c, "file is required (multipart/form-data)")
+    }
+
+    uploadDir := filepath.Join("uploads", "achievements", id)
+    if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+        return helper.InternalError(c, "Failed to create upload directory")
+    }
+
+    // Nama file asli
+    originalName := filepath.Base(fileHeader.Filename)
+    ext := filepath.Ext(originalName)
+
+    // Simpan file dengan nama unik
+    newName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+    targetPath := filepath.Join(uploadDir, newName)
+
+    src, _ := fileHeader.Open()
+    defer src.Close()
+
+    dst, err := os.Create(targetPath)
+    if err != nil {
+        return helper.InternalError(c, "Failed to create file on server")
+    }
+    defer dst.Close()
+
+    _, err = io.Copy(dst, src)
+    if err != nil {
+        return helper.InternalError(c, "Failed to save file")
+    }
+
+    // Bangun file URL (contoh: localhost:8080 atau domain)
+    fileURL := fmt.Sprintf("/static/achievements/%s/%s", id, newName)
+
+    attachment := models.Attachment{
+        FileName:   originalName,
+        FileURL:    fileURL,
+        FileType:   fileHeader.Header.Get("Content-Type"),
+        UploadedAt: time.Now(),
+    }
+
+    // Simpan metadata ke Mongo
+    if err := repository.AddAchievementAttachment(id, attachment); err != nil {
+        return helper.InternalError(c, err.Error())
+    }
+
+    return helper.APIResponse(c, fiber.StatusCreated, "Attachment uploaded", map[string]any{
+        "file": attachment,
+    })
+}
+
+
+func GetAchievementHistory(c *fiber.Ctx) error {
+	id := c.Params("id") // mongo hex id
+
+	// 1) Ambil reference dari Postgres
+	ref, err := repository.GetAchievementReferenceByMongoID(id)
+	if err != nil {
+		return helper.NotFound(c, "Achievement reference not found")
+	}
+
+	// 2) Ambil dokumen achievement dari Mongo (opsional — enrich)
+	var ach *models.Achievement
+	ach, err = repository.GetAchievementByIdMongo(id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			ach = nil
+		} else {
+			return helper.BadRequest(c, "Invalid achievement ID")
+		}
+	}
+
+	// helper untuk cek pointer time
+	timePtrIsZero := func(t *time.Time) bool {
+		if t == nil {
+			return true
+		}
+		// deref dan cek IsZero
+		return t.IsZero()
+	}
+
+	// Build history events
+	history := []map[string]any{}
+
+	// created
+	history = append(history, map[string]any{
+		"event":       "created",
+		"status":      "draft",
+		"timestamp":   ref.CreatedAt,
+		"actor":       nil,
+		"description": "Draft created",
+	})
+
+	// attachment_uploaded events (jika ada)
+	if ach != nil && len(ach.Attachments) > 0 {
+		for _, a := range ach.Attachments {
+			ts := a.UploadedAt
+			if ts.IsZero() {
+				// fallback ke reference.updatedAt bila UploadedAt belum terisi
+				ts = ref.UpdatedAt
+			}
+			history = append(history, map[string]any{
+				"event":       "attachment_uploaded",
+				"status":      ref.Status,
+				"timestamp":   ts,
+				"actor":       nil,
+				"description": "Uploaded file: " + a.FileName,
+				"file": map[string]any{
+					"fileName": a.FileName,
+					"fileUrl":  a.FileURL,
+					"fileType": a.FileType,
+				},
+			})
+		}
+	}
+
+	// submitted
+	if ref.SubmittedAt != nil && !timePtrIsZero(ref.SubmittedAt) {
+		history = append(history, map[string]any{
+			"event":       "submitted",
+			"status":      "submitted",
+			"timestamp":   *ref.SubmittedAt,
+			"actor":       ref.StudentID,
+			"description": "Submitted for verification",
+		})
+	}
+
+	// verified or rejected
+	if ref.VerifiedAt != nil && !timePtrIsZero(ref.VerifiedAt) {
+		if ref.Status == "verified" {
+			var points any = nil
+			if ach != nil {
+				points = ach.Points
+			}
+			history = append(history, map[string]any{
+				"event":       "verified",
+				"status":      "verified",
+				"timestamp":   *ref.VerifiedAt,
+				"actor":       ref.VerifiedBy,
+				"description": "Verified",
+				"meta": map[string]any{
+					"points": points,
+				},
+			})
+		} else if ref.Status == "rejected" {
+			// safe deref rejection note (ref.RejectionNote is *string)
+			note := ""
+			if ref.RejectionNote != nil {
+				note = *ref.RejectionNote
+			}
+			history = append(history, map[string]any{
+				"event":       "rejected",
+				"status":      "rejected",
+				"timestamp":   *ref.VerifiedAt,
+				"actor":       ref.VerifiedBy,
+				"description": "Rejected: " + note,
+			})
+		}
+	}
+
+	// last_updated (ambil dari reference.updated_at)
+	history = append(history, map[string]any{
+		"event":       "last_updated",
+		"status":      ref.Status,
+		"timestamp":   ref.UpdatedAt,
+		"actor":       nil,
+		"description": "Last update",
+	})
+
+	// Build achievement response minimal (jika ada)
+	var achievementResp map[string]any = nil
+	if ach != nil {
+		attachments := make([]map[string]any, 0, len(ach.Attachments))
+		for _, a := range ach.Attachments {
+			attachments = append(attachments, map[string]any{
+				"fileName":   a.FileName,
+				"fileUrl":    a.FileURL,
+				"fileType":   a.FileType,
+				"uploadedAt": a.UploadedAt,
+			})
+		}
+
+		achievementResp = map[string]any{
+			"id":              ach.ID.Hex(),
+			"title":           ach.Title,
+			"description":     ach.Description,
+			"achievementType": ach.AchievementType,
+			"details":         ach.Details,
+			"attachments":     attachments,
+			"tags":            ach.Tags,
+			"points":          ach.Points,
+			"createdAt":       ach.CreatedAt,
+			"updatedAt":       ach.UpdatedAt,
+		}
+	}
+
+	resp := map[string]any{
+		"reference":   ref,
+		"achievement": achievementResp,
+		"history":     history,
+	}
+
+	return helper.APIResponse(c, fiber.StatusOK, "Success", resp)
+}

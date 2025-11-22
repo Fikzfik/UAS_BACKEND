@@ -21,7 +21,7 @@ func registerAchivementRoutes(api fiber.Router) {
 	r.Post("/:id/verify", middleware.DosenWaliOnly(), service.VerifyAchievement)
 	r.Post("/:id/reject", middleware.DosenWaliOnly(), service.RejectAchievement)
 
-	// r.Get("/:id/history", service.GetAchievementHistory)
+	r.Get("/:id/history", service.GetAchievementHistory)
 
-	// r.Post("/:id/attachments", middleware.MahasiswaOnly(), service.UploadAchievementFile)
+	r.Post("/:id/attachments", middleware.MahasiswaOnly(), service.UploadAchievementFile)
 }

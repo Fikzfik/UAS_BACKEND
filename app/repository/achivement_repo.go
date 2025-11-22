@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	// "database/sql"
 	"errors"
@@ -382,3 +383,65 @@ func IsLecturerAdvisorOfStudent(lecturerID string, studentID string) (bool, erro
     }
     return exists, nil
 }
+
+
+func AddAchievementAttachment(mongoID string, att models.Attachment) error {
+    collection := database.MongoDB.Collection("achievements")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    objID, err := primitive.ObjectIDFromHex(mongoID)
+    if err != nil {
+        return err
+    }
+
+    attDoc := bson.M{
+        "fileName":   att.FileName,
+        "fileUrl":    att.FileURL,
+        "fileType":   att.FileType,
+        "uploadedAt": att.UploadedAt,
+    }
+
+    // Try push normally
+    update := bson.M{
+        "$push": bson.M{"attachments": attDoc},
+        "$set":  bson.M{"updatedAt": time.Now()},
+    }
+
+    res, err := collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+    if err == nil {
+        if res.MatchedCount == 0 {
+            return errors.New("achievement not found")
+        }
+        return nil
+    }
+
+    // If attachments is null or not array → fix it
+    if strings.Contains(err.Error(), "must be an array") ||
+        strings.Contains(err.Error(), "is of type null") {
+
+        fix := bson.M{
+            "$set": bson.M{
+                "attachments": []bson.M{},
+                "updatedAt":   time.Now(),
+            },
+        }
+
+        if _, fixErr := collection.UpdateOne(ctx, bson.M{"_id": objID}, fix); fixErr != nil {
+            return fixErr
+        }
+
+        // Retry push
+        res2, err2 := collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+        if err2 != nil {
+            return err2
+        }
+        if res2.MatchedCount == 0 {
+            return errors.New("achievement not found on retry")
+        }
+        return nil
+    }
+
+    return err
+}
+

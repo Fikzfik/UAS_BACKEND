@@ -9,5 +9,5 @@ func RegisterRoutes(app *fiber.App) {
 	registerAchivementRoutes(api)
 	registerStudentRoutes(api)
 	registerlecturerRoutes(api)
-	// registerReportRoutes(api)
+	registerReportRoutes(api)
 }

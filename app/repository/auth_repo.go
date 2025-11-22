@@ -111,3 +111,33 @@ func GetLecturerIDByUserID(userID string) (string, error) {
     }
     return lecturerID, nil
 }
+
+func GetAdviseeIDsByLecturer(lecturerID string) ([]string, error) {
+	rows, err := database.PSQL.Query(`
+        SELECT id FROM students WHERE advisor_id = $1
+    `, lecturerID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	list := []string{}
+	for rows.Next() {
+		var id string
+		rows.Scan(&id)
+		list = append(list, id)
+	}
+	return list, nil
+}
+
+func IsStudentAdviseeOfLecturer(studentID, lecturerID string) (bool, error) {
+	var exists bool
+	err := database.PSQL.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM students 
+			WHERE id = $1 AND advisor_id = $2
+		)
+	`, studentID, lecturerID).Scan(&exists)
+
+	return exists, err
+}

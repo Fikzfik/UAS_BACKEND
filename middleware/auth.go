@@ -169,3 +169,57 @@ func LecturerOrAdminForLecturerResource() fiber.Handler {
 		return c.Next()
 	}
 }
+
+func AdminOrLecturerOrOwnerStudent() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		role := c.Locals("role").(string)
+		userID := c.Locals("user_id").(string)
+		studentID := c.Params("id")
+
+		if studentID == "" {
+			return helper.BadRequest(c, "student id is required")
+		}
+
+		// 1. Admin boleh semua
+		if role == "admin" {
+			return c.Next()
+		}
+
+		// 2. Mahasiswa hanya boleh akses dirinya sendiri
+		if role == "mahasiswa" {
+			myStudentID, err := repository.GetStudentIDByUserID(userID)
+			if err != nil {
+				return helper.Forbidden(c, "Student profile not found")
+			}
+
+			if myStudentID != studentID {
+				return helper.Forbidden(c, "You are not allowed to access other student's data")
+			}
+
+			return c.Next()
+		}
+
+		// 3. Dosen Wali boleh akses mahasiswa bimbingannya
+		if role == "dosen_wali" {
+			lecturerID, err := repository.GetLecturerIDByUserID(userID)
+			if err != nil {
+				return helper.Forbidden(c, "Lecturer profile not found")
+			}
+
+			// cek apakah student ini adalah bimbingan dosen tersebut
+			isAdvisee, err := repository.IsStudentAdviseeOfLecturer(studentID, lecturerID)
+			if err != nil {
+				return helper.InternalError(c, err.Error())
+			}
+
+			if !isAdvisee {
+				return helper.Forbidden(c, "You are not allowed to access this student's data")
+			}
+
+			return c.Next()
+		}
+
+		// 4. Role lain ditolak
+		return helper.Forbidden(c, "Access denied")
+	}
+}

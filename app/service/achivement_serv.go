@@ -61,7 +61,7 @@ func CreateAchievement(c *fiber.Ctx) error {
 		"rejectionNote", "rejection_note",
 		"createdAt", "created_at",
 		"updatedAt", "updated_at",
-		"attachments", // ❗ attachments tidak boleh dikirim saat create
+		"attachments", 
 	}
 
 	// Reject strictly forbidden fields

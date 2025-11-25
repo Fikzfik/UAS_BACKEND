@@ -4,18 +4,14 @@ import (
 	"UAS_GO/app/models"
 	"UAS_GO/app/repository"
 	"UAS_GO/database"
-	"UAS_GO/helper" 
+	"UAS_GO/helper"
 	"database/sql"
 	"errors"
-
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 )
 
 type AuthService struct{}
-
-func (s *AuthService) VerifyToken(param1 string) (any, any) {
-	panic("unimplemented")
-}
 
 func NewAuthService() *AuthService {
 	return &AuthService{}
@@ -23,21 +19,29 @@ func NewAuthService() *AuthService {
 
 func AuthLogin(c *fiber.Ctx) error {
 	authService := NewAuthService()
-	
+
 	var req models.LoginRequest
 
 	// Parsing body request
 	if err := c.BodyParser(&req); err != nil {
 		return helper.BadRequest(c, "Invalid request format")
 	}
+fmt.Printf("DEBUG LoginRequest: %+v\n", req)
+	// Validasi input dasar: minimal email atau nim, dan password
+	if req.Password == "" || (req.Email == "" && req.NIM == "") {
+		return helper.BadRequest(c, "Email or NIM and password are required")
+	}
 
-	// Validasi input dasar
-	if req.Email == "" || req.Password == "" {
-		return helper.BadRequest(c, "Email and password are required")
+	// Tentukan apakah login by NIM atau by Email
+	byNIM := false
+	identifier := req.Email
+	if req.NIM != "" {
+		byNIM = true
+		identifier = req.NIM
 	}
 
 	// Memanggil service untuk logika bisnis (termasuk verifikasi password dan generate token)
-	resp, err := authService.Login(req.Email, req.Password)
+	resp, err := authService.Login(identifier, req.Password, byNIM)
 	if err != nil {
 		// Menggunakan helper.Unauthorized untuk error otentikasi
 		return helper.Unauthorized(c, err.Error())
@@ -46,6 +50,7 @@ func AuthLogin(c *fiber.Ctx) error {
 	// Respons sukses
 	return helper.APIResponse(c, fiber.StatusOK, "Login successful", resp)
 }
+
 func AuthGetProfile(c *fiber.Ctx) error {
 
 	// Extract user ID from JWT claims
@@ -81,11 +86,26 @@ func AuthLogout(c *fiber.Ctx) error {
 
 	return helper.APIResponse(c, fiber.StatusOK, "Logout successful", nil)
 }
-func (s *AuthService) Login(email, password string) (*models.LoginResponse, error) {
+
+func (s *AuthService) Login(identifier, password string, byNIM bool) (*models.LoginResponse, error) {
 	// Query user from PostgreSQL
-	query := `SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = $1`
-	user := &models.User{}
-	err := database.PSQL.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.RoleID, &user.IsActive)
+	var query string
+	var user = &models.User{}
+
+	if byNIM {
+		// Cari user berdasarkan student_id (NIM) di table students
+		query = `
+			SELECT u.id, u.email, u.password_hash, u.role_id, u.is_active
+			FROM users u
+			JOIN students s ON s.user_id = u.id
+			WHERE s.student_id = $1
+		`
+	} else {
+		// Cari user berdasarkan email
+		query = `SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = $1`
+	}
+
+	err := database.PSQL.QueryRow(query, identifier).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.RoleID, &user.IsActive)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("user not found")
@@ -111,9 +131,8 @@ func (s *AuthService) Login(email, password string) (*models.LoginResponse, erro
 	// Ambil daftar permissions berdasarkan role_id
 	perms, err := repository.GetPermissionsByRoleID(user.RoleID)
 	if err != nil {
-		// jika gagal ambil permissions, jangan gagal total login; log error dan return tanpa permissions
-		// tapi untuk sekarang kembalikan error supaya kelihatan apa yang terjadi
-		return nil, err
+		// jangan gagalkan login hanya karena gagal ambil permissions; kembalikan tanpa permissions
+		perms = []string{}
 	}
 
 	return &models.LoginResponse{
@@ -122,9 +141,6 @@ func (s *AuthService) Login(email, password string) (*models.LoginResponse, erro
 		Permissions: perms,
 	}, nil
 }
-
-
-
 
 func (s *AuthService) RefreshToken(token string) (*models.LoginResponse, error) {
 	// Verify and parse the token
@@ -154,9 +170,16 @@ func (s *AuthService) RefreshToken(token string) (*models.LoginResponse, error) 
 		return nil, err
 	}
 
+	// Ambil permissions untuk role (jangan gagal token refresh jika error -> kembalikan perms kosong)
+	perms, err := repository.GetPermissionsByRoleID(user.RoleID)
+	if err != nil {
+		perms = []string{}
+	}
+
 	return &models.LoginResponse{
-		User:  *user,
-		Token: newToken,
+		User:        *user,
+		Token:       newToken,
+		Permissions: perms,
 	}, nil
 }
 

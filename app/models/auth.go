@@ -21,8 +21,9 @@ type User struct {
 
 // Request body untuk login
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+    Email    string `json:"email"`
+    NIM      string `json:"nim"`
+    Password string `json:"password"`
 }
 
 // Response login (user info + token)

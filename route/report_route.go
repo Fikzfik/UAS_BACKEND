@@ -6,10 +6,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-
 func registerReportRoutes(api fiber.Router) {
 	r := api.Group("/reports", middleware.AuthRequired())
 
-	r.Get("/statistics", service.GetGlobalStatistics)
-	r.Get("/student/:id", middleware.AdminOrLecturerOrOwnerStudent(), service.GetStudentReport)
+	r.Get("/statistics", middleware.PermissionRequired("report:statistics"), service.GetGlobalStatistics)
+	r.Get("/student/:id", middleware.PermissionRequired("report:student"), service.GetStudentReport)
 }

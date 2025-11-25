@@ -8,11 +8,12 @@ import (
 
 func registerAuthRoutes(api fiber.Router) {
 	auth := api.Group("/auth")
+
 	auth.Post("/login", service.AuthLogin)
 
 	protected := auth.Use(middleware.AuthRequired())
 
-	protected.Get("/profile", service.AuthGetProfile)
+	protected.Get("/profile", middleware.PermissionRequired("auth:profile"), service.AuthGetProfile)
 	protected.Post("/logout", service.AuthLogout)
 	protected.Post("/refresh", service.AuthRefreshToken)
 }

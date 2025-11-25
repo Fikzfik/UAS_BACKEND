@@ -7,11 +7,12 @@ import (
 )
 
 func registerAdminRoutes(api fiber.Router) {
-	admin := api.Group("/users", middleware.AuthRequired(), middleware.AdminOnly())
-	admin.Get("/", service.AdminGetAllUsers)
-	admin.Get("/:id", service.AdminGetUserByID)
-	admin.Post("/", service.AdminCreateUser)
-	admin.Put("/:id", service.AdminUpdateUser)
-	admin.Delete("/:id", service.AdminDeleteUser)
-	admin.Put("/:id/role", service.AdminUpdateUserRole)
+	admin := api.Group("/users", middleware.AuthRequired(), middleware.PermissionRequired("user:manage"))
+
+	admin.Get("/", middleware.PermissionRequired("user:read"), service.AdminGetAllUsers)
+	admin.Get("/:id", middleware.PermissionRequired("user:read"), service.AdminGetUserByID)
+	admin.Post("/", middleware.PermissionRequired("user:create"), service.AdminCreateUser)
+	admin.Put("/:id", middleware.PermissionRequired("user:update"), service.AdminUpdateUser)
+	admin.Delete("/:id", middleware.PermissionRequired("user:delete"), service.AdminDeleteUser)
+	admin.Put("/:id/role", middleware.PermissionRequired("user:assign-role"), service.AdminUpdateUserRole)
 }

@@ -10,6 +10,6 @@ import (
 func registerlecturerRoutes(api fiber.Router) {
 	r := api.Group("/lecturers", middleware.AuthRequired())
 
-	r.Get("/", middleware.AdminOnly(), service.GetAllLecturers)
-	r.Get("/:id/advisees", middleware.LecturerOrAdminForLecturerResource(), service.GetLecturerAdvisees)
+	r.Get("/", middleware.PermissionRequired("lecturer:read"), service.GetAllLecturers)
+	r.Get("/:id/advisees", middleware.PermissionRequired("lecturer:advisee-list"), service.GetLecturerAdvisees)
 }

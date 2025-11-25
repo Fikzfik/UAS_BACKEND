@@ -69,7 +69,32 @@ func GetRoleNameByID(roleID string) (string, error) {
 
     return roleName, nil
 }
+func GetPermissionsByRoleID(roleID string) ([]string, error) {
+	if roleID == "" {
+		return nil, errors.New("role id is empty")
+	}
 
+	rows, err := database.PSQL.Query(`
+		SELECT p.name
+		FROM role_permissions rp
+		JOIN permissions p ON rp.permission_id = p.id
+		WHERE rp.role_id = $1
+	`, roleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var perms []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		perms = append(perms, name)
+	}
+	return perms, nil
+}
 func LogoutUser(userID string) error {
 	// Token invalidation logic can be implemented here
 	// For now, logout is handled client-side by removing the token
@@ -140,4 +165,51 @@ func IsStudentAdviseeOfLecturer(studentID, lecturerID string) (bool, error) {
 	`, studentID, lecturerID).Scan(&exists)
 
 	return exists, err
+}
+
+
+func RoleHasPermission(roleID string, permissionName string) (bool, error) {
+    if roleID == "" || permissionName == "" {
+        return false, errors.New("invalid args")
+    }
+
+    var exists bool
+    query := `
+        SELECT EXISTS(
+            SELECT 1
+            FROM role_permissions rp
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE rp.role_id = $1 AND p.name = $2
+        )
+    `
+    err := database.PSQL.QueryRow(query, roleID, permissionName).Scan(&exists)
+    if err != nil {
+        return false, err
+    }
+    return exists, nil
+}
+
+// UserHasPermission: opsi jika kamu punya mekanisme permission per-user
+func UserHasPermission(userID string, permissionName string) (bool, error) {
+    if userID == "" || permissionName == "" {
+        return false, errors.New("invalid args")
+    }
+
+    var exists bool
+    // contoh query: ambil role_id dari users lalu cek role_permissions
+    query := `
+        SELECT EXISTS(
+            SELECT 1
+            FROM users u
+            JOIN roles r ON u.role_id = r.id
+            JOIN role_permissions rp ON rp.role_id = r.id
+            JOIN permissions p ON p.id = rp.permission_id
+            WHERE u.id = $1 AND p.name = $2
+        )
+    `
+    err := database.PSQL.QueryRow(query, userID, permissionName).Scan(&exists)
+    if err != nil {
+        return false, err
+    }
+    return exists, nil
 }

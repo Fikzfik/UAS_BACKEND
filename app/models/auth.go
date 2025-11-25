@@ -27,9 +27,11 @@ type LoginRequest struct {
 
 // Response login (user info + token)
 type LoginResponse struct {
-	User  User   `json:"user"`
-	Token string `json:"token"`
+    User        User     `json:"user"`
+    Token       string   `json:"token"`
+    Permissions []string `json:"permissions"` // <- tambahkan ini jika belum ada
 }
+
 
 // Payload JWT
 type JWTClaims struct {

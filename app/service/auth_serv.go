@@ -108,11 +108,21 @@ func (s *AuthService) Login(email, password string) (*models.LoginResponse, erro
 		return nil, err
 	}
 
+	// Ambil daftar permissions berdasarkan role_id
+	perms, err := repository.GetPermissionsByRoleID(user.RoleID)
+	if err != nil {
+		// jika gagal ambil permissions, jangan gagal total login; log error dan return tanpa permissions
+		// tapi untuk sekarang kembalikan error supaya kelihatan apa yang terjadi
+		return nil, err
+	}
+
 	return &models.LoginResponse{
-		User:  *user,
-		Token: token,
+		User:        *user,
+		Token:       token,
+		Permissions: perms,
 	}, nil
 }
+
 
 
 

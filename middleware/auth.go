@@ -26,6 +26,7 @@ func AuthRequired() fiber.Handler {
             return helper.Unauthorized(c, "Token tidak valid atau expired")
         }
 
+        // claims.Role diasumsikan adalah role ID (UUID). Ambil nama role untuk convenience.
         roleName, err := repository.GetRoleNameByID(claims.Role)
         if err != nil {
             return helper.Unauthorized(c, "Role tidak ditemukan")
@@ -34,11 +35,46 @@ func AuthRequired() fiber.Handler {
         c.Locals("user_id", claims.UserID)
         c.Locals("email", claims.Email)
         c.Locals("role", roleName)
+        c.Locals("role_id", claims.Role) // <<-- simpan role id juga
+
+
 
         return c.Next()
     }
 }
+func PermissionRequired(permission string) fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        // 1) Fast path: cek apakah permissions ada di Locals (mis. dari JWT claims)
+        if permsVal := c.Locals("permissions"); permsVal != nil {
+            if permsSlice, ok := permsVal.([]string); ok {
+                for _, p := range permsSlice {
+                    if p == permission {
+                        return c.Next()
+                    }
+                }
+            }
+        }
 
+        // 2) Ambil role_id dari locals
+        roleIDVal := c.Locals("role_id")
+        roleID, _ := roleIDVal.(string)
+        if roleID == "" {
+            // jika role_id kosong, kemungkinan AuthRequired belum dipanggil
+            return helper.Unauthorized(c, "Unauthorized")
+        }
+
+        // 3) Cek lewat repository (DB)
+        has, err := repository.RoleHasPermission(roleID, permission)
+        if err != nil {
+            return helper.InternalError(c, "Error checking permissions")
+        }
+        if !has {
+            return helper.Forbidden(c, "Akses ditolak. Permission diperlukan: "+permission)
+        }
+
+        return c.Next()
+    }
+}
 
 func AdminOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {

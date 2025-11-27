@@ -189,15 +189,38 @@ func GetAchievementReferenceByMongoID(mongoID string) (*models.AchievementRefere
 }
 
 // Hard delete reference by its reference UUID (NOT by mongoID)
-func AchievementHardDeleteReference(referenceID string) error {
+func AchievementSoftDeleteReference(referenceID string) error {
+	if referenceID == "" {
+		return errors.New("reference id required")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// pastikan record ada dan ambil status/updated_at semula (untuk rollback jika perlu)
+	var prevStatus sql.NullString
+	var prevUpdatedAt sql.NullTime
+	err := database.PSQL.QueryRowContext(ctx,
+		"SELECT status, updated_at FROM achievement_references WHERE id = $1", referenceID).
+		Scan(&prevStatus, &prevUpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return sql.ErrNoRows
+		}
+		return err
+	}
+
+	// Update menjadi soft-deleted
 	res, err := database.PSQL.ExecContext(ctx,
-		"DELETE FROM achievement_references WHERE id = $1", referenceID)
+		`UPDATE achievement_references
+		 SET status = 'deleted',
+		     deleted_at = NOW(),
+		     updated_at = NOW()
+		 WHERE id = $1`, referenceID)
 	if err != nil {
 		return err
 	}
+
 	ra, err := res.RowsAffected()
 	if err != nil {
 		return err
@@ -205,30 +228,37 @@ func AchievementHardDeleteReference(referenceID string) error {
 	if ra == 0 {
 		return sql.ErrNoRows
 	}
+
 	return nil
 }
 
 
-func AchievementHardDeleteMongo(mongoID string) error {
-	collection := database.MongoDB.Collection("achievements")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+func AchievementSoftDeleteMongo(mongoID string) error {
+    collection := database.MongoDB.Collection("achievements")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
 
-	objID, err := primitive.ObjectIDFromHex(mongoID)
-	if err != nil {
-		return err
-	}
+    objID, err := primitive.ObjectIDFromHex(mongoID)
+    if err != nil {
+        return err
+    }
 
-	result, err := collection.DeleteOne(ctx, bson.M{"_id": objID})
-	if err != nil {
-		return err
-	}
-	if result.DeletedCount == 0 {
-		return mongo.ErrNoDocuments
-	}
-	return nil
+    update := bson.M{
+        "$set": bson.M{
+            "status":     "deleted",
+            "deleted_at": time.Now(), // menandai kapan di-soft-delete
+        },
+    }
+
+    result, err := collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+    if err != nil {
+        return err
+    }
+    if result.MatchedCount == 0 {
+        return mongo.ErrNoDocuments
+    }
+    return nil
 }
-
 
 
 

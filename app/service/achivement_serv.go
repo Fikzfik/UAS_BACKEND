@@ -270,12 +270,12 @@ func DeleteAchievement(c *fiber.Ctx) error {
 	}
 
 	// 1) HAPUS Mongo DULU
-	if err := repository.AchievementHardDeleteMongo(id); err != nil {
+	if err := repository.AchievementSoftDeleteMongo(id); err != nil {
 		return helper.InternalError(c, "Failed to delete achievement in MongoDB")
 	}
 
 	// 2) HAPUS reference Postgres PAKAI reference ID
-	if err := repository.AchievementHardDeleteReference(ref.ID); err != nil {
+	if err := repository.AchievementSoftDeleteReference(ref.ID); err != nil {
 		return helper.InternalError(c, "Failed to delete achievement reference")
 	}
 

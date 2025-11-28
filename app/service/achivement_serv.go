@@ -61,7 +61,7 @@ func CreateAchievement(c *fiber.Ctx) error {
 		"rejectionNote", "rejection_note",
 		"createdAt", "created_at",
 		"updatedAt", "updated_at",
-		"attachments", 
+		"attachments",
 	}
 
 	// Reject strictly forbidden fields
@@ -137,7 +137,6 @@ func CreateAchievement(c *fiber.Ctx) error {
 	)
 }
 
-
 // update achievement oleh mahasiswa (partial update)
 func UpdateAchievement(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -179,8 +178,8 @@ func UpdateAchievement(c *fiber.Ctx) error {
 	}
 
 	// ambil user_id dari JWT context
-	currentUserID, ok := c.Locals("user_id").(string)
-	if !ok || currentUserID == "" {
+	currentUserID := helper.GetUserID(c)
+	if currentUserID == "" {
 		return helper.Unauthorized(c, "Unauthorized")
 	}
 
@@ -234,11 +233,10 @@ func DeleteAchievement(c *fiber.Ctx) error {
 	id := c.Params("id") // mongoID
 
 	// Ambil user_id dari JWT
-	currentUserID, ok := c.Locals("user_id").(string)
-	if !ok || currentUserID == "" {
+	currentUserID := helper.GetUserID(c)
+	if currentUserID == "" {
 		return helper.Unauthorized(c, "Unauthorized")
 	}
-
 	// Konversi user_id -> student.id
 	studentID, err := repository.GetStudentIDByUserID(currentUserID)
 	if err != nil {
@@ -286,8 +284,8 @@ func SubmitAchievement(c *fiber.Ctx) error {
 	id := c.Params("id") // mongo achievement ID
 
 	// ambil user_id dari JWT context
-	currentUserID, ok := c.Locals("user_id").(string)
-	if !ok || currentUserID == "" {
+	currentUserID := helper.GetUserID(c)
+	if currentUserID == "" {
 		return helper.Unauthorized(c, "Unauthorized")
 	}
 
@@ -350,8 +348,8 @@ func VerifyAchievement(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	// Get dosen user ID
-	currentUserID, ok := c.Locals("user_id").(string)
-	if !ok || currentUserID == "" {
+	currentUserID := helper.GetUserID(c)
+	if currentUserID == "" {
 		return helper.Unauthorized(c, "Unauthorized")
 	}
 
@@ -371,8 +369,6 @@ func VerifyAchievement(c *fiber.Ctx) error {
 	if ref.Status != "submitted" {
 		return helper.BadRequest(c, "Only submitted achievements can be verified")
 	}
-
-
 
 	// Verify dosen advisor harus wali mahasiswa
 	isAdvisor, err := repository.IsLecturerAdvisorOfStudent(lecturerID, ref.StudentID)
@@ -411,8 +407,8 @@ func RejectAchievement(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	// Get current user (dosen)
-	currentUserID, ok := c.Locals("user_id").(string)
-	if !ok || currentUserID == "" {
+	currentUserID := helper.GetUserID(c)
+	if currentUserID == "" {
 		return helper.Unauthorized(c, "Unauthorized")
 	}
 
@@ -465,84 +461,82 @@ func RejectAchievement(c *fiber.Ctx) error {
 	return helper.APIResponse(c, 200, "Achievement rejected", nil)
 }
 
-
 func UploadAchievementFile(c *fiber.Ctx) error {
-    id := c.Params("id")
+	id := c.Params("id")
 
-    // Ambil user_id dari JWT
-    currentUserID, ok := c.Locals("user_id").(string)
-    if !ok || currentUserID == "" {
-        return helper.Unauthorized(c, "Unauthorized")
-    }
+	// Ambil user_id dari JWT
+	currentUserID := helper.GetUserID(c)
+	if currentUserID == "" {
+		return helper.Unauthorized(c, "Unauthorized")
+	}
 
-    // Konversi user -> studentID
-    studentID, err := repository.GetStudentIDByUserID(currentUserID)
-    if err != nil {
-        return helper.Forbidden(c, "Student profile not found")
-    }
+	// Konversi user -> studentID
+	studentID, err := repository.GetStudentIDByUserID(currentUserID)
+	if err != nil {
+		return helper.Forbidden(c, "Student profile not found")
+	}
 
-    // Cek dokumen Mongo + kepemilikan
-    existing, err := repository.GetAchievementByIdMongo(id)
-    if err != nil {
-        return helper.NotFound(c, "Achievement not found")
-    }
-    if existing.StudentID != studentID {
-        return helper.Forbidden(c, "You are not allowed to upload attachment for this achievement")
-    }
+	// Cek dokumen Mongo + kepemilikan
+	existing, err := repository.GetAchievementByIdMongo(id)
+	if err != nil {
+		return helper.NotFound(c, "Achievement not found")
+	}
+	if existing.StudentID != studentID {
+		return helper.Forbidden(c, "You are not allowed to upload attachment for this achievement")
+	}
 
-    // Ambil file dari form
-    fileHeader, err := c.FormFile("file")
-    if err != nil {
-        return helper.BadRequest(c, "file is required (multipart/form-data)")
-    }
+	// Ambil file dari form
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return helper.BadRequest(c, "file is required (multipart/form-data)")
+	}
 
-    uploadDir := filepath.Join("uploads", "achievements", id)
-    if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-        return helper.InternalError(c, "Failed to create upload directory")
-    }
+	uploadDir := filepath.Join("uploads", "achievements", id)
+	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+		return helper.InternalError(c, "Failed to create upload directory")
+	}
 
-    // Nama file asli
-    originalName := filepath.Base(fileHeader.Filename)
-    ext := filepath.Ext(originalName)
+	// Nama file asli
+	originalName := filepath.Base(fileHeader.Filename)
+	ext := filepath.Ext(originalName)
 
-    // Simpan file dengan nama unik
-    newName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
-    targetPath := filepath.Join(uploadDir, newName)
+	// Simpan file dengan nama unik
+	newName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	targetPath := filepath.Join(uploadDir, newName)
 
-    src, _ := fileHeader.Open()
-    defer src.Close()
+	src, _ := fileHeader.Open()
+	defer src.Close()
 
-    dst, err := os.Create(targetPath)
-    if err != nil {
-        return helper.InternalError(c, "Failed to create file on server")
-    }
-    defer dst.Close()
+	dst, err := os.Create(targetPath)
+	if err != nil {
+		return helper.InternalError(c, "Failed to create file on server")
+	}
+	defer dst.Close()
 
-    _, err = io.Copy(dst, src)
-    if err != nil {
-        return helper.InternalError(c, "Failed to save file")
-    }
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return helper.InternalError(c, "Failed to save file")
+	}
 
-    // Bangun file URL (contoh: localhost:8080 atau domain)
-    fileURL := fmt.Sprintf("/static/achievements/%s/%s", id, newName)
+	// Bangun file URL (contoh: localhost:8080 atau domain)
+	fileURL := fmt.Sprintf("/static/achievements/%s/%s", id, newName)
 
-    attachment := models.Attachment{
-        FileName:   originalName,
-        FileURL:    fileURL,
-        FileType:   fileHeader.Header.Get("Content-Type"),
-        UploadedAt: time.Now(),
-    }
+	attachment := models.Attachment{
+		FileName:   originalName,
+		FileURL:    fileURL,
+		FileType:   fileHeader.Header.Get("Content-Type"),
+		UploadedAt: time.Now(),
+	}
 
-    // Simpan metadata ke Mongo
-    if err := repository.AddAchievementAttachment(id, attachment); err != nil {
-        return helper.InternalError(c, err.Error())
-    }
+	// Simpan metadata ke Mongo
+	if err := repository.AddAchievementAttachment(id, attachment); err != nil {
+		return helper.InternalError(c, err.Error())
+	}
 
-    return helper.APIResponse(c, fiber.StatusCreated, "Attachment uploaded", map[string]any{
-        "file": attachment,
-    })
+	return helper.APIResponse(c, fiber.StatusCreated, "Attachment uploaded", map[string]any{
+		"file": attachment,
+	})
 }
-
 
 func GetAchievementHistory(c *fiber.Ctx) error {
 	id := c.Params("id") // mongo hex id

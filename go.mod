@@ -33,6 +33,7 @@ require (
 )
 
 require (
+	bou.ke/monkey v1.0.2
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/google/uuid v1.6.0

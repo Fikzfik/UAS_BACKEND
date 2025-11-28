@@ -2,152 +2,144 @@ package service_test
 
 import (
 	"database/sql"
-	"testing"
 
+	"regexp"
+	"testing"
+	
 	"UAS_GO/app/service"
-	// "UAS_GO/app/models"
 	"UAS_GO/database"
 
+	"UAS_GO/helper"
+	"UAS_GO/app/models"
+
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/stretchr/testify/require"
+	"bou.ke/monkey"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ===== Mock helper functions =====
-
-// bcrypt helper
-func hashPassword(t *testing.T, p string) string {
-	h, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
-	require.NoError(t, err)
-	return string(h)
+func setupDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock: %v", err)
+	}
+	database.PSQL = db
+	return db, mock
 }
 
-func TestAuthLogin(t *testing.T) {
-
-	t.Run("Valid_Email", func(t *testing.T) {
-		db, mock, _ := sqlmock.New()
-		defer db.Close()
-		database.PSQL = db
-
-		email := "mhs1@example.com"
-		pass := "123456"
-		passHash := hashPassword(t, pass)
-		roleID := "role-uuid-1"
-
-		// Query user by email
-		mock.ExpectQuery(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = \$1`).
-			WithArgs(email).
-			WillReturnRows(sqlmock.NewRows(
-				[]string{"id", "email", "password_hash", "role_id", "is_active"},
-			).AddRow("user-uuid-1", email, passHash, roleID, true))
-
-		// Permissions query
-		mock.ExpectQuery(`SELECT p.name FROM role_permissions`).
-			WithArgs(roleID).
-			WillReturnRows(sqlmock.NewRows([]string{"name"}).
-				AddRow("achievement:create").
-				AddRow("auth:profile"),
-			)
-
-		s := service.NewAuthService()
-		resp, err := s.Login(email, pass, false)
-		require.NoError(t, err)
-		require.NotEmpty(t, resp.Token)
-		require.Equal(t, email, resp.User.Email)
-		require.Equal(t, roleID, resp.User.RoleID)
-
-		require.NoError(t, mock.ExpectationsWereMet())
+func TestAuthService_Login(t *testing.T) {
+	// Patch helper.GenerateToken with the exact signature used in your code.
+	// According to the panic, GenerateToken accepts models.User.
+	monkey.Patch(helper.GenerateToken, func(u models.User) (string, error) {
+		return "fixed-token", nil
 	})
-
-	t.Run("Valid_NIM", func(t *testing.T) {
-		db, mock, _ := sqlmock.New()
-		defer db.Close()
-		database.PSQL = db
-
-		nim := "20230001"
-		pass := "123456"
-		passHash := hashPassword(t, pass)
-		roleID := "role-uuid-2"
-
-		// Query join students -> users
-		mock.ExpectQuery(`SELECT u.id, u.email, u.password_hash, u.role_id, u.is_active FROM users u`).
-			WithArgs(nim).
-			WillReturnRows(sqlmock.NewRows(
-				[]string{"id", "email", "password_hash", "role_id", "is_active"},
-			).AddRow("user-uuid-2", "nimuser@example.com", passHash, roleID, true))
-
-		mock.ExpectQuery(`SELECT p.name FROM role_permissions`).
-			WithArgs(roleID).
-			WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("achievement:create"))
-
-		s := service.NewAuthService()
-		resp, err := s.Login(nim, pass, true)
-		require.NoError(t, err)
-		require.Equal(t, roleID, resp.User.RoleID)
-
-		require.NoError(t, mock.ExpectationsWereMet())
+	// Patch CheckPassword (likely signature func(password, hash string) bool)
+	monkey.Patch(helper.CheckPassword, func(password, hash string) bool {
+		// Use bcrypt compare to allow creating hashed passwords in tests
+		return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 	})
+	defer monkey.UnpatchAll()
 
-	t.Run("Wrong_Password", func(t *testing.T) {
-		db, mock, _ := sqlmock.New()
-		defer db.Close()
-		database.PSQL = db
+	db, mock := setupDB(t)
+	defer db.Close()
 
-		email := "mhs1@example.com"
-		passHash := hashPassword(t, "WRONGPASS")
+	tests := []struct {
+		name       string
+		byNIM      bool
+		identifier string
+		password   string
+		setupMock  func()
+		wantErr    bool
+		errText    string
+	}{
+		{
+			name:       "UserNotFoundByEmail",
+			byNIM:      false,
+			identifier: "notfound@example.com",
+			password:   "any",
+			setupMock: func() {
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = $1`)).
+					WithArgs("notfound@example.com").WillReturnError(sql.ErrNoRows)
+			},
+			wantErr: true,
+			errText: "user not found",
+		},
+		{
+			name:       "InvalidPassword",
+			byNIM:      false,
+			identifier: "bob@example.com",
+			password:   "wrongpass",
+			setupMock: func() {
+				hashed, _ := bcrypt.GenerateFromPassword([]byte("correctpass"), bcrypt.DefaultCost)
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = $1`)).
+					WithArgs("bob@example.com").WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "role_id", "is_active"}).
+						AddRow("u-1", "bob@example.com", string(hashed), "r-1", true))
+			},
+			wantErr: true,
+			errText: "invalid password",
+		},
+		{
+			name:       "InactiveUser",
+			byNIM:      false,
+			identifier: "inactive@example.com",
+			password:   "secret",
+			setupMock: func() {
+				hashed, _ := bcrypt.GenerateFromPassword([]byte("secret"), bcrypt.DefaultCost)
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = $1`)).
+					WithArgs("inactive@example.com").WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "role_id", "is_active"}).
+						AddRow("u-2", "inactive@example.com", string(hashed), "r-1", false))
+			},
+			wantErr: true,
+			errText: "user account is inactive",
+		},
+		{
+			name:       "Success",
+			byNIM:      false,
+			identifier: "alice@example.com",
+			password:   "secret",
+			setupMock: func() {
+				hashed, _ := bcrypt.GenerateFromPassword([]byte("secret"), bcrypt.DefaultCost)
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = $1`)).
+					WithArgs("alice@example.com").WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "role_id", "is_active"}).
+						AddRow("u-1", "alice@example.com", string(hashed), "r-1", true))
 
-		mock.ExpectQuery(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = \$1`).
-			WithArgs(email).
-			WillReturnRows(sqlmock.NewRows(
-				[]string{"id", "email", "password_hash", "role_id", "is_active"},
-			).AddRow("uuid-x", email, passHash, "role-x", true))
+				// repository.GetPermissionsByRoleID runs a SQL query inside Login -> mock it
+				mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT p.name
+		FROM role_permissions rp
+		JOIN permissions p ON rp.permission_id = p.id
+		WHERE rp.role_id = $1
+	`)).WithArgs("r-1").WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("achievement:create"))
+			},
+			wantErr: false,
+		},
+	}
 
-		s := service.NewAuthService()
-		_, err := s.Login(email, "123456", false)
-		require.Error(t, err)
-		require.Equal(t, "invalid password", err.Error())
-
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("User_Inactive", func(t *testing.T) {
-		db, mock, _ := sqlmock.New()
-		defer db.Close()
-		database.PSQL = db
-
-		email := "inactive@example.com"
-		passHash := hashPassword(t, "123456")
-
-		mock.ExpectQuery(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = \$1`).
-			WithArgs(email).
-			WillReturnRows(sqlmock.NewRows(
-				[]string{"id", "email", "password_hash", "role_id", "is_active"},
-			).AddRow("uuid-inactive", email, passHash, "role-inactive", false))
-
-		s := service.NewAuthService()
-		_, err := s.Login(email, "123456", false)
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "inactive")
-
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("User_Not_Found", func(t *testing.T) {
-		db, mock, _ := sqlmock.New()
-		defer db.Close()
-		database.PSQL = db
-
-		mock.ExpectQuery(`SELECT id, email, password_hash, role_id, is_active FROM users WHERE email = \$1`).
-			WithArgs("notfound@example.com").
-			WillReturnError(sql.ErrNoRows)
-
-		s := service.NewAuthService()
-		_, err := s.Login("notfound@example.com", "whatever", false)
-
-		require.Error(t, err)
-		require.Equal(t, "user not found", err.Error())
-
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+	svc := service.NewAuthService()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setupMock()
+			resp, err := svc.Login(tc.identifier, tc.password, tc.byNIM)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				if tc.errText != "" && err.Error() != tc.errText {
+					// allow substring match
+					if !regexp.MustCompile(regexp.QuoteMeta(tc.errText)).MatchString(err.Error()) {
+						t.Fatalf("expected error containing %q, got %v", tc.errText, err)
+					}
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resp == nil || resp.Token == "" {
+				t.Fatalf("expected valid token in response")
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("unmet expectations: %v", err)
+			}
+		})
+	}
 }

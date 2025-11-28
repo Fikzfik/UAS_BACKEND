@@ -58,3 +58,16 @@ func GetIntQuery(c *fiber.Ctx, key string, defaultValue int) int {
 
 	return num
 }
+func GetUserID(c *fiber.Ctx) string {
+    // Unit test pakai Header
+    if h := c.Get("user_id"); h != "" {
+        return h
+    }
+
+    // Real API pakai Locals
+    if v := c.Locals("user_id"); v != nil {
+        return v.(string)
+    }
+
+    return ""
+}

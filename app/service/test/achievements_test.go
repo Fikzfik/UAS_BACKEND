@@ -49,11 +49,6 @@ func makeCtx(app *fiber.App, method, path string, body []byte) *fiber.Ctx {
 	return ctx
 }
 
-// helper buat ObjectID dari hex
-func oid(hex string) primitive.ObjectID {
-	id, _ := primitive.ObjectIDFromHex(hex)
-	return id
-}
 
 ///////////////////////////////////////////////////////////////////////////
 // 1. TEST GET ALL ACHIEVEMENTS
@@ -178,6 +173,7 @@ func TestCreateAchievement(t *testing.T) {
 
 	// ROUTE
 	app.Post("/achievements", service.CreateAchievement)
+	
 
 	t.Run("Success", func(t *testing.T) {
 
@@ -267,14 +263,14 @@ func TestCreateAchievement(t *testing.T) {
 	})
 }
 func makeReq(method, path string, body any) *http.Request {
-	var b []byte
-	if body != nil {
-		b, _ = json.Marshal(body)
-	}
+    var b []byte
+    if body != nil {
+        b, _ = json.Marshal(body)
+    }
 
-	req := httptest.NewRequest(method, path, bytes.NewReader(b))
-	req.Header.Set("Content-Type", "application/json")
-	return req
+    req := httptest.NewRequest(method, path, bytes.NewReader(b))
+    req.Header.Set("Content-Type", "application/json")
+    return req
 }
 
 func TestUpdateAchievement(t *testing.T) {
@@ -493,6 +489,7 @@ func makeMultipartReq(method, path, fieldName, fileName, contentType string, fil
 	return req, nil
 }
 
+
 /*** PART 3: Submit, Verify, Reject, Upload, History ***/
 
 func TestSubmitVerifyRejectUploadHistory(t *testing.T) {
@@ -518,55 +515,56 @@ func TestSubmitVerifyRejectUploadHistory(t *testing.T) {
 	// -------------------------------
 	// 1) SubmitAchievement
 	// -------------------------------
-	t.Run("SubmitAchievement_Success", func(t *testing.T) {
-		// Patch GetUserID mapping -> student id
-		p1 := bm.Patch(repository.GetStudentIDByUserID,
-			func(uid string) (string, error) { return "stu-1", nil })
-		defer p1.Unpatch()
+t.Run("SubmitAchievement_Success", func(t *testing.T) {
+    // Patch GetUserID mapping -> student id
+    p1 := bm.Patch(repository.GetStudentIDByUserID,
+        func(uid string) (string, error) { return "stu-1", nil })
+    defer p1.Unpatch()
 
-		// Patch GetAchievementByIdMongo -> owned by same student
-		p2 := bm.Patch(repository.GetAchievementByIdMongo,
-			func(id string) (*models.Achievement, error) {
-				return &models.Achievement{
-					ID:        oid(id),
-					StudentID: "stu-1",
-				}, nil
-			})
-		defer p2.Unpatch()
+    // Patch GetAchievementByIdMongo -> owned by same student
+    p2 := bm.Patch(repository.GetAchievementByIdMongo,
+        func(id string) (*models.Achievement, error) {
+            return &models.Achievement{
+                ID:        oid(id),
+                StudentID: "stu-1",
+            }, nil
+        })
+    defer p2.Unpatch()
 
-		// Patch GetAchievementReferenceByMongoID -> exists and draft
-		p3 := bm.Patch(repository.GetAchievementReferenceByMongoID,
-			func(mongoID string) (*models.AchievementReference, error) {
-				now := time.Now()
-				return &models.AchievementReference{
-					ID:                 "ref-1",
-					StudentID:          "stu-1",
-					MongoAchievementID: mongoID,
-					Status:             "draft",
-					CreatedAt:          now,
-					UpdatedAt:          now,
-				}, nil
-			})
-		defer p3.Unpatch()
+    // Patch GetAchievementReferenceByMongoID -> exists and draft
+    p3 := bm.Patch(repository.GetAchievementReferenceByMongoID,
+        func(mongoID string) (*models.AchievementReference, error) {
+            now := time.Now()
+            return &models.AchievementReference{
+                ID:                 "ref-1",
+                StudentID:          "stu-1",
+                MongoAchievementID: mongoID,
+                Status:             "draft",
+                CreatedAt:          now,
+                UpdatedAt:          now,
+            }, nil
+        })
+    defer p3.Unpatch()
 
-		// Patch AchievementUpdateMongoMap -> success (no-op)
-		p4 := bm.Patch(repository.AchievementUpdateMongoMap,
-			func(id string, updates map[string]any) error { return nil })
-		defer p4.Unpatch()
+    // Patch AchievementUpdateMongoMap -> success (no-op)
+    p4 := bm.Patch(repository.AchievementUpdateMongoMap,
+        func(id string, updates map[string]any) error { return nil })
+    defer p4.Unpatch()
 
-		// Patch UpdateReferenceStatusSubmitted -> success
-		p5 := bm.Patch(repository.UpdateReferenceStatusSubmitted,
-			func(mongoID string) error { return nil })
-		defer p5.Unpatch()
+    // Patch UpdateReferenceStatusSubmitted -> success
+    p5 := bm.Patch(repository.UpdateReferenceStatusSubmitted,
+        func(mongoID string) error { return nil })
+    defer p5.Unpatch()
 
-		// Buat request & set header user_id (helper.GetUserID membaca header)
-		req := makeReq("POST", "/achievements/507f1f77bcf86cd799439011/submit", nil)
-		req.Header.Set("user_id", "user-1")
+    // Buat request & set header user_id (helper.GetUserID membaca header)
+    req := makeReq("POST", "/achievements/507f1f77bcf86cd799439011/submit", nil)
+    req.Header.Set("user_id", "user-1")
 
-		resp, err := app.Test(req)
-		require.NoError(t, err)
-		require.Equal(t, 200, resp.StatusCode)
-	})
+    resp, err := app.Test(req)
+    require.NoError(t, err)
+    require.Equal(t, 200, resp.StatusCode)
+})
+
 
 	t.Run("SubmitAchievement_AlreadySubmitted", func(t *testing.T) {
 		p1 := bm.Patch(repository.GetStudentIDByUserID,
@@ -859,16 +857,16 @@ func TestSubmitVerifyRejectUploadHistory(t *testing.T) {
 				note := "no"
 				vby := "lec-1"
 				return &models.AchievementReference{
-					ID:                 "ref-h-1",
-					StudentID:          "stu-1",
+					ID:            "ref-h-1",
+					StudentID:     "stu-1",
 					MongoAchievementID: mongoID,
-					Status:             "verified",
-					SubmittedAt:        &sub,
-					VerifiedAt:         &ver,
-					VerifiedBy:         &vby,
-					RejectionNote:      &note,
-					CreatedAt:          now,
-					UpdatedAt:          now,
+					Status:        "verified",
+					SubmittedAt:   &sub,
+					VerifiedAt:    &ver,
+					VerifiedBy:    &vby,
+					RejectionNote: &note,
+					CreatedAt:     now,
+					UpdatedAt:     now,
 				}, nil
 			})
 		defer pRef.Unpatch()
@@ -878,9 +876,9 @@ func TestSubmitVerifyRejectUploadHistory(t *testing.T) {
 			func(id string) (*models.Achievement, error) {
 				now := time.Now()
 				return &models.Achievement{
-					ID:        oid(id),
-					StudentID: "stu-1",
-					Title:     "T",
+					ID:            oid(id),
+					StudentID:     "stu-1",
+					Title:         "T",
 					Attachments: []models.Attachment{
 						{
 							FileName:   "a.txt",

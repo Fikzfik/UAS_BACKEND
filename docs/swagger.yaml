@@ -1,0 +1,1172 @@
+basePath: /api/v1
+definitions:
+  models.CreateAchievementRequest:
+    properties:
+      achievementType:
+        type: string
+      description:
+        type: string
+      details:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  models.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      is_active:
+        type: boolean
+      password:
+        minLength: 6
+        type: string
+      role_id:
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - full_name
+    - is_active
+    - password
+    - role_id
+    - username
+    type: object
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      nim:
+        type: string
+      password:
+        type: string
+    type: object
+  models.RefreshTokenRequest:
+    properties:
+      token:
+        type: string
+    type: object
+  models.RejectAchievementRequest:
+    properties:
+      note:
+        type: string
+    type: object
+  models.UpdateAchievementRequest:
+    properties:
+      achievementType:
+        type: string
+      description:
+        type: string
+      details:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  models.UpdateStudentAdvisorRequest:
+    properties:
+      advisorId:
+        type: string
+    type: object
+  models.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      is_active:
+        type: boolean
+      password:
+        type: string
+      role_id:
+        type: string
+      username:
+        type: string
+    type: object
+  models.UpdateUserRoleRequest:
+    properties:
+      role_id:
+        type: string
+    required:
+    - role_id
+    type: object
+  models.VerifyAchievementRequest:
+    properties:
+      points:
+        type: integer
+    type: object
+host: localhost:3000
+info:
+  contact:
+    name: Pengembang Backend
+  description: Backend untuk sistem pelaporan prestasi mahasiswa sesuai SRS.
+  title: Sistem Pelaporan Prestasi Mahasiswa API
+  version: "1.0"
+paths:
+  /achievements:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar prestasi. Opsional filter by studentId dan type.
+      parameters:
+      - description: Filter by student UUID
+        in: query
+        name: studentId
+        type: string
+      - description: Filter by achievement type
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data}
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List achievements
+      tags:
+      - Achievements
+    post:
+      consumes:
+      - application/json
+      description: Mahasiswa mengajukan achievement baru sebagai draft. Field seperti
+        studentId, status, points, attachments akan di-set oleh server.
+      parameters:
+      - description: Achievement payload (tanpa studentId, status, points, dll)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateAchievementRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: envelope {status,message,data:{id}}
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (invalid JSON/body validation)
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Student profile not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create new achievement (draft)
+      tags:
+      - Achievements
+  /achievements/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Menghapus achievement draft oleh mahasiswa. Hanya status draft
+        yang boleh dihapus.
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Achievement deleted (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden (not owner / not draft)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete achievement (student)
+      tags:
+      - Achievements
+    get:
+      consumes:
+      - application/json
+      description: Mengambil detail achievement berdasarkan Mongo ID.
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data}
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid ID format
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get achievement by ID
+      tags:
+      - Achievements
+    patch:
+      consumes:
+      - application/json
+      description: Partial update achievement oleh mahasiswa. Field tertentu (status,
+        points, studentId, dll) tidak boleh diubah.
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateAchievementRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Achievement updated (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (invalid body / blocked fields)
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden (not owner)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update achievement (student)
+      tags:
+      - Achievements
+  /achievements/{id}/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Mahasiswa meng-upload file lampiran untuk achievement miliknya.
+        Menggunakan multipart/form-data dengan field `file`.
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File attachment
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Attachment uploaded (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (no file / invalid form)
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden (not owner)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Upload attachment for achievement
+      tags:
+      - Achievements
+  /achievements/{id}/history:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil reference, achievement (jika ada), dan riwayat event
+        (created, submitted, verified, rejected, attachment_uploaded, last_updated).
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data:{reference,achievement,history}}
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid achievement ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement reference not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get achievement history & timeline
+      tags:
+      - Achievements
+  /achievements/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: Dosen wali menolak achievement dan memberikan catatan penolakan.
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rejection payload (note)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RejectAchievementRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Achievement rejected (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (invalid JSON / status bukan submitted)
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden (not advisor)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement/reference not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reject achievement (lecturer)
+      tags:
+      - Achievements
+  /achievements/{id}/submit:
+    post:
+      consumes:
+      - application/json
+      description: Mahasiswa meng-submit achievement draft untuk diverifikasi dosen
+        wali.
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Achievement submitted (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (invalid ID / already submitted)
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden (not owner)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement or reference not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Submit achievement for verification
+      tags:
+      - Achievements
+  /achievements/{id}/verify:
+    post:
+      consumes:
+      - application/json
+      description: Dosen wali memverifikasi achievement dan memberikan poin.
+      parameters:
+      - description: Achievement Mongo ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Verification payload (points)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.VerifyAchievementRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Achievement verified (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (invalid JSON / points)
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden (not advisor)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Achievement/reference not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify achievement (lecturer)
+      tags:
+      - Achievements
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar semua user (hanya untuk admin).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data} berisi array user
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all users (admin)
+      tags:
+      - Admin - Users
+    post:
+      consumes:
+      - application/json
+      description: Admin membuat user baru. Password akan di-hash sebelum disimpan.
+      parameters:
+      - description: User payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: envelope {status,message,data} berisi user baru
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid request body / validation error
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create new user (admin)
+      tags:
+      - Admin - Users
+  /admin/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Admin menghapus user berdasarkan ID.
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: user deleted (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: user not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete user (admin)
+      tags:
+      - Admin - Users
+    get:
+      consumes:
+      - application/json
+      description: Mengambil detail user berdasarkan ID (UUID).
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data} berisi user
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: user not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get user by ID (admin)
+      tags:
+      - Admin - Users
+    put:
+      consumes:
+      - application/json
+      description: Admin mengubah data user (email, username, full name, role, status
+        aktif).
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data} berisi user terupdate
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid request body / email already used / invalid role_id
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: user not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update user (admin)
+      tags:
+      - Admin - Users
+  /admin/users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Admin mengubah role user (hanya role, tanpa mengubah field lain).
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateUserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: user role updated (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid request body
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: user not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update user role (admin)
+      tags:
+      - Admin - Users
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Autentikasi user menggunakan email+password atau NIM+password,
+        mengembalikan JWT token dan data user.
+      parameters:
+      - description: Login payload (email+password atau nim+password)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data:LoginResponse}
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format / missing fields
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid credentials / inactive account
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login user (email atau NIM)
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Melakukan logout user yang sedang login (misalnya dengan blacklist
+        token atau update state di server).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Logout current user
+      tags:
+      - Auth
+  /auth/profile:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil profil user yang sedang login berdasarkan JWT (field
+        user_id pada context).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data} berisi profil user
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: User not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get current user profile
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Menerima token lama (masih valid) dan mengembalikan token baru
+        dengan data user terbaru.
+      parameters:
+      - description: Refresh token payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data:LoginResponse}
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format / token empty
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid or expired token
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh JWT token
+      tags:
+      - Auth
+  /lecturers:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar semua dosen.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data} berisi array lecturers
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all lecturers
+      tags:
+      - Lecturers
+  /lecturers/{id}/advisees:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar mahasiswa bimbingan seorang dosen beserta prestasinya
+        dengan pagination.
+      parameters:
+      - description: Lecturer ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data:{page,limit,results}}
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get lecturer's advisees and their achievements
+      tags:
+      - Lecturers
+  /statistics/global:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data} berisi statistik global
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized (role/user_id tidak tersedia)
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden (profil tidak ditemukan)
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get global statistics (role-based)
+      tags:
+      - Statistics
+  /statistics/students/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil statistik dan laporan prestasi untuk satu mahasiswa berdasarkan
+        student ID (UUID Postgres).
+      parameters:
+      - description: Student ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data} berisi statistik student
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get single student report
+      tags:
+      - Statistics
+  /students:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar mahasiswa. Optional filter by advisorId dan free-text
+        query q.
+      parameters:
+      - description: Filter by advisor UUID
+        format: uuid
+        in: query
+        name: advisorId
+        type: string
+      - description: Free-text search (nama, npm, dll)
+        in: query
+        name: q
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data}
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all students
+      tags:
+      - Students
+  /students/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil detail student berdasarkan ID.
+      parameters:
+      - description: Student ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: envelope {status,message,data}
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Student not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get student by ID
+      tags:
+      - Students
+  /students/{id}/achievements:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil achievement references untuk student. Jika reference
+        memiliki mongoId maka akan di-enrich dengan dokumen MongoDB.
+      parameters:
+      - description: Student ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Optional status filter (pending, verified, rejected, ...)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'array of { reference: object, achievement: object|null }'
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "404":
+          description: Student not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get student's achievement references (enriched)
+      tags:
+      - Students
+      - Achievements
+  /students/{id}/advisor:
+    put:
+      consumes:
+      - application/json
+      description: 'Update advisorId milik student. body JSON: { "advisorId": "<uuid|null>"
+        }.'
+      parameters:
+      - description: Student ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Payload: advisorId (uuid or null)'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateStudentAdvisorRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Student advisor updated (envelope)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request (invalid JSON/body validation)
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error response
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update student's advisor
+      tags:
+      - Students
+schemes:
+- http
+swagger: "2.0"

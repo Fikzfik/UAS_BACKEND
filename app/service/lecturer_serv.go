@@ -7,7 +7,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-
+// GetAllLecturers godoc
+// @Summary Get all lecturers
+// @Description Mengambil daftar semua dosen.
+// @Tags Lecturers
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi array lecturers"
+// @Failure 500 {object} map[string]interface{} "error response"
+// @Router /lecturers [get]
 func GetAllLecturers(c *fiber.Ctx) error {
 	lects, err := repository.GetAllLecturers()
 	if err != nil {
@@ -16,22 +24,34 @@ func GetAllLecturers(c *fiber.Ctx) error {
 	return helper.APIResponse(c, fiber.StatusOK, "Success", lects)
 }
 
+// GetLecturerAdvisees godoc
+// @Summary Get lecturer's advisees and their achievements
+// @Description Mengambil daftar mahasiswa bimbingan seorang dosen beserta prestasinya dengan pagination.
+// @Tags Lecturers
+// @Accept json
+// @Produce json
+// @Param id path string true "Lecturer ID (UUID)"
+// @Param page query int false "Page number (default 1)"
+// @Param limit query int false "Items per page (default 10)"
+// @Success 200 {object} map[string]interface{} "envelope {status,message,data:{page,limit,results}}"
+// @Failure 500 {object} map[string]interface{} "error response"
+// @Router /lecturers/{id}/advisees [get]
 func GetLecturerAdvisees(c *fiber.Ctx) error {
-    lecturerID := c.Params("id")
+	lecturerID := c.Params("id")
 
-    // pagination
-    page := helper.GetIntQuery(c, "page", 1)
-    limit := helper.GetIntQuery(c, "limit", 10)
-    offset := (page - 1) * limit
+	// pagination
+	page := helper.GetIntQuery(c, "page", 1)
+	limit := helper.GetIntQuery(c, "limit", 10)
+	offset := (page - 1) * limit
 
-    results, err := repository.GetAdviseeAchievementsByLecturerID(lecturerID, limit, offset)
-    if err != nil {
-        return helper.InternalError(c, err.Error())
-    }
+	results, err := repository.GetAdviseeAchievementsByLecturerID(lecturerID, limit, offset)
+	if err != nil {
+		return helper.InternalError(c, err.Error())
+	}
 
-    return helper.APIResponse(c, 200, "Success", map[string]any{
-        "page":    page,
-        "limit":   limit,
-        "results": results,
-    })
+	return helper.APIResponse(c, fiber.StatusOK, "Success", map[string]any{
+		"page":    page,
+		"limit":   limit,
+		"results": results,
+	})
 }

@@ -1,13 +1,26 @@
 package service
 
 import (
+	"UAS_GO/app/models"
 	"UAS_GO/app/repository"
 	"UAS_GO/helper"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetAllStudents handler
+// ---- Tambahan: request struct khusus endpoint advisor ----
+
+// GetAllStudents godoc
+// @Summary Get all students
+// @Description Mengambil daftar mahasiswa. Optional filter by advisorId dan free-text query q.
+// @Tags Students
+// @Accept json
+// @Produce json
+// @Param advisorId query string false "Filter by advisor UUID" format(uuid)
+// @Param q query string false "Free-text search (nama, npm, dll)"
+// @Success 200 {object} map[string]interface{} "envelope {status,message,data}"
+// @Failure 500 {object} map[string]interface{} "error response"
+// @Router /students [get]
 func GetAllStudents(c *fiber.Ctx) error {
 	advisorId := c.Query("advisorId")
 	q := c.Query("q")
@@ -19,7 +32,17 @@ func GetAllStudents(c *fiber.Ctx) error {
 	return helper.APIResponse(c, fiber.StatusOK, "Success", students)
 }
 
-// GetStudentByID handler
+// GetStudentByID godoc
+// @Summary Get student by ID
+// @Description Mengambil detail student berdasarkan ID.
+// @Tags Students
+// @Accept json
+// @Produce json
+// @Param id path string true "Student ID" format(uuid)
+// @Success 200 {object} map[string]interface{} "envelope {status,message,data}"
+// @Failure 404 {object} map[string]interface{} "Student not found"
+// @Failure 500 {object} map[string]interface{} "error response"
+// @Router /students/{id} [get]
 func GetStudentByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -33,7 +56,18 @@ func GetStudentByID(c *fiber.Ctx) error {
 	return helper.APIResponse(c, fiber.StatusOK, "Success", s)
 }
 
-// GetStudentAchievements handler (enriches Postgres refs with Mongo doc)
+// GetStudentAchievements godoc
+// @Summary Get student's achievement references (enriched)
+// @Description Mengambil achievement references untuk student. Jika reference memiliki mongoId maka akan di-enrich dengan dokumen MongoDB.
+// @Tags Students, Achievements
+// @Accept json
+// @Produce json
+// @Param id path string true "Student ID" format(uuid)
+// @Param status query string false "Optional status filter (pending, verified, rejected, ...)"
+// @Success 200 {array} map[string]interface{} "array of { reference: object, achievement: object|null }"
+// @Failure 404 {object} map[string]interface{} "Student not found"
+// @Failure 500 {object} map[string]interface{} "error response"
+// @Router /students/{id}/achievements [get]
 func GetStudentAchievements(c *fiber.Ctx) error {
 	id := c.Params("id")
 	status := c.Query("status") // optional
@@ -93,13 +127,22 @@ func GetStudentAchievements(c *fiber.Ctx) error {
 	return helper.APIResponse(c, fiber.StatusOK, "Success", results)
 }
 
-// UpdateStudentAdvisor handler
+// UpdateStudentAdvisor godoc
+// @Summary Update student's advisor
+// @Description Update advisorId milik student. body JSON: { "advisorId": "<uuid|null>" }.
+// @Tags Students
+// @Accept json
+// @Produce json
+// @Param id path string true "Student ID" format(uuid)
+// @Param body body models.UpdateStudentAdvisorRequest true "Payload: advisorId (uuid or null)"
+// @Success 200 {object} map[string]interface{} "Student advisor updated (envelope)"
+// @Failure 400 {object} map[string]interface{} "Bad request (invalid JSON/body validation)"
+// @Failure 500 {object} map[string]interface{} "error response"
+// @Router /students/{id}/advisor [put]
 func UpdateStudentAdvisor(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var body struct {
-		AdvisorId *string `json:"advisorId"`
-	}
+	var body models.UpdateStudentAdvisorRequest
 	if err := c.BodyParser(&body); err != nil {
 		return helper.BadRequest(c, "Invalid JSON body")
 	}

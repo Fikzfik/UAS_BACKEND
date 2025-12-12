@@ -3,9 +3,9 @@ package main
 import (
 	"UAS_GO/config"
 	"UAS_GO/database"
-	"UAS_GO/route"
-
 	_ "UAS_GO/docs" // <- wajib: package yang dibuat swag
+	"UAS_GO/route"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberSwagger "github.com/swaggo/fiber-swagger"
 )
 
@@ -16,6 +16,9 @@ import (
 // @host localhost:3000
 // @BasePath /api/v1
 // @schemes http
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	config.LoadEnv()
 
@@ -25,6 +28,13 @@ func main() {
 	// database.MigrateTesting(database.PSQL) // uncomment jika perlu
 
 	app := config.NewApp()
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*", // atau contoh: "http://localhost:3000,http://localhost:8080"
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		// AllowCredentials: true, // aktifkan jika butuh cookies/credentials
+	}))
+
 	route.RegisterRoutes(app)
 	app.Static("/static", "./uploads")
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)

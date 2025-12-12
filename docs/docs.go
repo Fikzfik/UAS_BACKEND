@@ -1059,6 +1059,11 @@ const docTemplate = `{
         },
         "/auth/profile": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Mengambil profil user yang sedang login berdasarkan JWT (field user_id pada context).",
                 "consumes": [
                     "application/json"
@@ -1693,6 +1698,13 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

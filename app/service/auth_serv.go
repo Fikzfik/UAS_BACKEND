@@ -75,6 +75,7 @@ func AuthLogin(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]interface{} "User not authenticated"
 // @Failure 404 {object} map[string]interface{} "User not found"
 // @Failure 500 {object} map[string]interface{} "error response"
+// @Security BearerAuth
 // @Router /auth/profile [get]
 func AuthGetProfile(c *fiber.Ctx) error {
 	// Extract user ID from JWT claims

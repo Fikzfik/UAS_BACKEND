@@ -864,6 +864,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Get current user profile
       tags:
       - Auth
@@ -1169,4 +1171,9 @@ paths:
       - Students
 schemes:
 - http
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

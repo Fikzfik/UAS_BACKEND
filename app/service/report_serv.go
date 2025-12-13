@@ -9,20 +9,20 @@ import (
 )
 
 // GetGlobalStatistics godoc
-// @Summary Get global statistics (role-based)
-// @Description
-//   Mengambil statistik global prestasi:
-//   - admin: melihat semua data
-//   - dosen_wali: hanya prestasi mahasiswa bimbingannya
-//   - mahasiswa: hanya prestasi milik sendiri.
-// @Tags Statistics
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi statistik global"
-// @Failure 401 {object} map[string]interface{} "Unauthorized (role/user_id tidak tersedia)"
-// @Failure 403 {object} map[string]interface{} "Forbidden (profil tidak ditemukan)"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /statistics/global [get]
+// @Summary      Get global statistics (role-based)
+// @Description  Mengambil statistik global prestasi berdasarkan role:
+// @Description  - admin: melihat semua data
+// @Description  - dosen_wali: hanya prestasi mahasiswa bimbingannya
+// @Description  - mahasiswa: hanya prestasi milik sendiri
+// @Tags         Statistics
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data} berisi statistik global"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized (role / user_id tidak tersedia)"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (profil dosen/mahasiswa tidak ditemukan)"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /statistics/global [get]
 func GetGlobalStatistics(c *fiber.Ctx) error {
 	role, ok := c.Locals("role").(string)
 	if !ok || role == "" {
@@ -67,15 +67,20 @@ func GetGlobalStatistics(c *fiber.Ctx) error {
 }
 
 // GetStudentReport godoc
-// @Summary Get single student report
-// @Description Mengambil statistik dan laporan prestasi untuk satu mahasiswa berdasarkan student ID (UUID Postgres).
-// @Tags Statistics
-// @Accept json
-// @Produce json
-// @Param id path string true "Student ID (UUID)"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi statistik student"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /statistics/students/{id} [get]
+// @Summary      Get student report
+// @Description  Mengambil statistik dan laporan prestasi untuk satu mahasiswa.
+// @Description  Berdasarkan student ID (UUID dari PostgreSQL).
+// @Tags         Statistics
+// @Accept       json
+// @Produce      json
+// @Param        id   path   string  true  "Student ID (UUID)"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data} berisi statistik student"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (akses bukan admin / dosen wali)"
+// @Failure      404  {object}  map[string]interface{}  "Student not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /statistics/students/{id} [get]
 func GetStudentReport(c *fiber.Ctx) error {
 	studentID := c.Params("id")
 

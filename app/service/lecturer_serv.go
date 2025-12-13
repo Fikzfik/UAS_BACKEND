@@ -8,14 +8,17 @@ import (
 )
 
 // GetAllLecturers godoc
-// @Summary Get all lecturers
-// @Description Mengambil daftar semua dosen.
-// @Tags Lecturers
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi array lecturers"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /lecturers [get]
+// @Summary      Get all lecturers
+// @Description  Mengambil daftar semua dosen.
+// @Tags         Lecturers
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data} berisi array lecturers"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /lecturers [get]
 func GetAllLecturers(c *fiber.Ctx) error {
 	lects, err := repository.GetAllLecturers()
 	if err != nil {
@@ -25,17 +28,22 @@ func GetAllLecturers(c *fiber.Ctx) error {
 }
 
 // GetLecturerAdvisees godoc
-// @Summary Get lecturer's advisees and their achievements
-// @Description Mengambil daftar mahasiswa bimbingan seorang dosen beserta prestasinya dengan pagination.
-// @Tags Lecturers
-// @Accept json
-// @Produce json
-// @Param id path string true "Lecturer ID (UUID)"
-// @Param page query int false "Page number (default 1)"
-// @Param limit query int false "Items per page (default 10)"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data:{page,limit,results}}"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /lecturers/{id}/advisees [get]
+// @Summary      Get lecturer's advisees and achievements
+// @Description  Mengambil daftar mahasiswa bimbingan seorang dosen beserta prestasinya (pagination).
+// @Tags         Lecturers
+// @Accept       json
+// @Produce      json
+// @Param        id     path   string  true   "Lecturer ID (UUID)"
+// @Param        page   query  int     false  "Page number (default 1)"
+// @Param        limit  query  int     false  "Items per page (default 10)"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data:{page,limit,results}}"
+// @Failure      400  {object}  map[string]interface{}  "Invalid lecturer ID"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not advisor)"
+// @Failure      404  {object}  map[string]interface{}  "Lecturer not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /lecturers/{id}/advisees [get]
 func GetLecturerAdvisees(c *fiber.Ctx) error {
 	lecturerID := c.Params("id")
 

@@ -19,17 +19,18 @@ func NewAuthService() *AuthService {
 }
 
 // AuthLogin godoc
-// @Summary Login user (email atau NIM)
-// @Description Autentikasi user menggunakan email+password atau NIM+password, mengembalikan JWT token dan data user.
-// @Tags Auth
-// @Accept json
-// @Produce json
-// @Param body body models.LoginRequest true "Login payload (email+password atau nim+password)"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data:LoginResponse}"
-// @Failure 400 {object} map[string]interface{} "Invalid request format / missing fields"
-// @Failure 401 {object} map[string]interface{} "Invalid credentials / inactive account"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /auth/login [post]
+// @Summary      Login user
+// @Description  Autentikasi user menggunakan email+password atau NIM+password.
+// @Description  Mengembalikan JWT token, data user, dan permissions.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body   models.LoginRequest  true  "Login payload (email+password atau NIM+password)"
+// @Success      200   {object}  map[string]interface{}  "envelope {status,message,data:LoginResponse}"
+// @Failure      400   {object}  map[string]interface{}  "Invalid request format / missing fields"
+// @Failure      401   {object}  map[string]interface{}  "Invalid credentials / inactive account"
+// @Failure      500   {object}  map[string]interface{}  "error response"
+// @Router       /auth/login [post]
 func AuthLogin(c *fiber.Ctx) error {
 	authService := NewAuthService()
 
@@ -66,17 +67,17 @@ func AuthLogin(c *fiber.Ctx) error {
 }
 
 // AuthGetProfile godoc
-// @Summary Get current user profile
-// @Description Mengambil profil user yang sedang login berdasarkan JWT (field user_id pada context).
-// @Tags Auth
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi profil user"
-// @Failure 401 {object} map[string]interface{} "User not authenticated"
-// @Failure 404 {object} map[string]interface{} "User not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Security BearerAuth
-// @Router /auth/profile [get]
+// @Summary      Get current user profile
+// @Description  Mengambil profil user yang sedang login berdasarkan JWT.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data} berisi profil user"
+// @Failure      401  {object}  map[string]interface{}  "User not authenticated"
+// @Failure      404  {object}  map[string]interface{}  "User not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /auth/profile [get]
 func AuthGetProfile(c *fiber.Ctx) error {
 	// Extract user ID from JWT claims
 	userID := c.Locals("user_id")
@@ -97,15 +98,16 @@ func AuthGetProfile(c *fiber.Ctx) error {
 }
 
 // AuthLogout godoc
-// @Summary Logout current user
-// @Description Melakukan logout user yang sedang login (misalnya dengan blacklist token atau update state di server).
-// @Tags Auth
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "Logout successful (envelope)"
-// @Failure 401 {object} map[string]interface{} "User not authenticated"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /auth/logout [post]
+// @Summary      Logout current user
+// @Description  Logout user yang sedang login (invalidate token / update state server).
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "Logout successful (envelope)"
+// @Failure      401  {object}  map[string]interface{}  "User not authenticated"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /auth/logout [post]
 func AuthLogout(c *fiber.Ctx) error {
 	// Extract user ID from JWT claims (assumes middleware sets it)
 	userID := c.Locals("user_id")
@@ -218,17 +220,17 @@ func (s *AuthService) RefreshToken(token string) (*models.LoginResponse, error) 
 }
 
 // AuthRefreshToken godoc
-// @Summary Refresh JWT token
-// @Description Menerima token lama (masih valid) dan mengembalikan token baru dengan data user terbaru.
-// @Tags Auth
-// @Accept json
-// @Produce json
-// @Param body body models.RefreshTokenRequest true "Refresh token payload"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data:LoginResponse}"
-// @Failure 400 {object} map[string]interface{} "Invalid request format / token empty"
-// @Failure 401 {object} map[string]interface{} "Invalid or expired token"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /auth/refresh [post]
+// @Summary      Refresh JWT token
+// @Description  Menerima token lama (masih valid) dan mengembalikan token baru.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body   models.RefreshTokenRequest  true  "Refresh token payload"
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data:LoginResponse}"
+// @Failure      400  {object}  map[string]interface{}  "Invalid request format / token empty"
+// @Failure      401  {object}  map[string]interface{}  "Invalid or expired token"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /auth/refresh [post]
 func AuthRefreshToken(c *fiber.Ctx) error {
 	authService := NewAuthService()
 

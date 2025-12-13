@@ -16,45 +16,45 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-
 var ErrNotFound = mongo.ErrNoDocuments
 
 // GetAllAchievements godoc
-// @Summary List achievements
-// @Description Mengambil daftar prestasi. Opsional filter by studentId dan type.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param studentId query string false "Filter by student UUID"
-// @Param type query string false "Filter by achievement type"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data}"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements [get]
+// @Summary      List achievements
+// @Description  Mengambil daftar prestasi. Bisa difilter studentId dan type.
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        studentId  query   string  false  "Filter by student UUID"
+// @Param        type       query   string  false  "Filter by achievement type"
+// @Security     BearerAuth
+// @Success      200  {array}   models.Achievement
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      500  {object}  map[string]interface{}  "Internal Server Error"
+// @Router       /achievements [get]
 func GetAllAchievements(c *fiber.Ctx) error {
-    studentId := c.Query("studentId")
-    achType := c.Query("type")
+	studentId := c.Query("studentId")
+	achType := c.Query("type")
 
-    data, err := repository.GetAllAchievements(studentId, achType)
-    if err != nil {
-        return helper.InternalError(c, err.Error())
-    }
+	data, err := repository.GetAllAchievements(studentId, achType)
+	if err != nil {
+		return helper.InternalError(c, err.Error())
+	}
 
-    return helper.APIResponse(c, 200, "Success", data)
+	return helper.APIResponse(c, 200, "Success", data)
 }
 
-
 // GetAchievementById godoc
-// @Summary Get achievement by ID
-// @Description Mengambil detail achievement berdasarkan Mongo ID.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data}"
-// @Failure 400 {object} map[string]interface{} "Invalid ID format"
-// @Failure 404 {object} map[string]interface{} "Achievement not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements/{id} [get]
+// @Summary      Get achievement detail
+// @Description  Mengambil detail prestasi berdasarkan ID Mongo
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        id   path   string  true  "Mongo Achievement ID"
+// @Security     BearerAuth
+// @Success      200  {object}  models.Achievement
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{} "Achievement not found"
+// @Router       /achievements/{id} [get]
 func GetAchievementById(c *fiber.Ctx) error {
 	id := c.Params("id")
 	data, err := repository.GetAchievementById(id)
@@ -65,18 +65,17 @@ func GetAchievementById(c *fiber.Ctx) error {
 }
 
 // CreateAchievement godoc
-// @Summary Create new achievement (draft)
-// @Description Mahasiswa mengajukan achievement baru sebagai draft. Field seperti studentId, status, points, attachments akan di-set oleh server.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param body body models.CreateAchievementRequest true "Achievement payload (tanpa studentId, status, points, dll)"points, dll)"
-// @Success 201 {object} map[string]interface{} "envelope {status,message,data:{id}}"
-// @Failure 400 {object} map[string]interface{} "Bad request (invalid JSON/body validation)"
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
-// @Failure 403 {object} map[string]interface{} "Student profile not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements [post]
+// @Summary      Create new achievement
+// @Description  Menambahkan prestasi baru ke MongoDB & reference ke PostgreSQL
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        body  body   models.Achievement  true  "Achievement payload"
+// @Security     BearerAuth
+// @Success      201  {object}  map[string]interface{}  "Created"
+// @Failure      400  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Router       /achievements [post]
 func CreateAchievement(c *fiber.Ctx) error {
 	// Parse body as map
 	var bodyMap map[string]any
@@ -176,20 +175,21 @@ func CreateAchievement(c *fiber.Ctx) error {
 }
 
 // UpdateAchievement godoc
-// @Summary Update achievement (student)
-// @Description Partial update achievement oleh mahasiswa. Field tertentu (status, points, studentId, dll) tidak boleh diubah.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Param body body models.UpdateAchievementRequest true "Fields to update"
-// @Success 200 {object} map[string]interface{} "Achievement updated (envelope)"
-// @Failure 400 {object} map[string]interface{} "Bad request (invalid body / blocked fields)"
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
-// @Failure 403 {object} map[string]interface{} "Forbidden (not owner)"
-// @Failure 404 {object} map[string]interface{} "Achievement not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements/{id} [patch]
+// @Summary      Update achievement
+// @Description  Mengupdate field tertentu pada achievement
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        id    path   string  true  "Mongo Achievement ID"
+// @Param        body  body   map[string]interface{}  true  "Fields to update"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "Achievement updated (envelope)"
+// @Failure      400  {object}  map[string]interface{}  "Bad request (invalid body / blocked fields)"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not owner)"
+// @Failure      404  {object}  map[string]interface{}  "Achievement not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /achievements/{id} [patch]
 func UpdateAchievement(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -281,19 +281,20 @@ func UpdateAchievement(c *fiber.Ctx) error {
 }
 
 // DeleteAchievement godoc
-// @Summary Delete achievement (student)
-// @Description Menghapus achievement draft oleh mahasiswa. Hanya status draft yang boleh dihapus.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Success 200 {object} map[string]interface{} "Achievement deleted (envelope)"
-// @Failure 400 {object} map[string]interface{} "Bad request"
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
-// @Failure 403 {object} map[string]interface{} "Forbidden (not owner / not draft)"
-// @Failure 404 {object} map[string]interface{} "Achievement not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements/{id} [delete]
+// @Summary      Delete (soft) achievement
+// @Description  Menandai prestasi sebagai deleted di Mongo & PostgreSQL (soft delete)
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        id   path   string  true  "Mongo Achievement ID"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "Achievement deleted (envelope)"
+// @Failure      400  {object}  map[string]interface{} "Bad request"
+// @Failure      401  {object}  map[string]interface{} "Unauthorized"
+// @Failure      403  {object}  map[string]interface{} "Forbidden (not owner / not draft)"
+// @Failure      404  {object}  map[string]interface{} "Achievement not found"
+// @Failure      500  {object}  map[string]interface{} "error response"
+// @Router       /achievements/{id} [delete]
 func DeleteAchievement(c *fiber.Ctx) error {
 	id := c.Params("id") // mongoID
 
@@ -346,19 +347,20 @@ func DeleteAchievement(c *fiber.Ctx) error {
 }
 
 // SubmitAchievement godoc
-// @Summary Submit achievement for verification
-// @Description Mahasiswa meng-submit achievement draft untuk diverifikasi dosen wali.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Success 200 {object} map[string]interface{} "Achievement submitted (envelope)"
-// @Failure 400 {object} map[string]interface{} "Bad request (invalid ID / already submitted)"
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
-// @Failure 403 {object} map[string]interface{} "Forbidden (not owner)"
-// @Failure 404 {object} map[string]interface{} "Achievement or reference not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements/{id}/submit [post]
+// @Summary      Submit achievement
+// @Description  Mahasiswa mengirim prestasi agar diverifikasi dosen
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        id   path   string  true  "Mongo Achievement ID"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "Achievement submitted (envelope)"
+// @Failure      400  {object}  map[string]interface{} "Bad request (invalid ID / already submitted)"
+// @Failure      401  {object}  map[string]interface{} "Unauthorized"
+// @Failure      403  {object}  map[string]interface{} "Forbidden (not owner)"
+// @Failure      404  {object}  map[string]interface{} "Achievement or reference not found"
+// @Failure      500  {object}  map[string]interface{} "error response"
+// @Router       /achievements/{id}/submit [post]
 func SubmitAchievement(c *fiber.Ctx) error {
 	id := c.Params("id") // mongo achievement ID
 
@@ -423,21 +425,23 @@ func SubmitAchievement(c *fiber.Ctx) error {
 	)
 }
 
+
 // VerifyAchievement godoc
-// @Summary Verify achievement (lecturer)
-// @Description Dosen wali memverifikasi achievement dan memberikan poin.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Param body body models.VerifyAchievementRequest true "Verification payload (points)"
-// @Success 200 {object} map[string]interface{} "Achievement verified (envelope)"
-// @Failure 400 {object} map[string]interface{} "Bad request (invalid JSON / points)"
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
-// @Failure 403 {object} map[string]interface{} "Forbidden (not advisor)"
-// @Failure 404 {object} map[string]interface{} "Achievement/reference not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements/{id}/verify [post]
+// @Summary      Verify achievement
+// @Description  Dosen memverifikasi prestasi dan memberi poin
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        id    path   string  true  "Mongo Achievement ID"
+// @Param        body  body   models.VerifyAchievementRequest  true  "Verification data"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "Achievement verified (envelope)"
+// @Failure      400  {object}  map[string]interface{}  "Bad request (invalid JSON / points)"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not advisor)"
+// @Failure      404  {object}  map[string]interface{}  "Achievement/reference not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /achievements/{id}/verify [post]
 func VerifyAchievement(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -496,20 +500,21 @@ func VerifyAchievement(c *fiber.Ctx) error {
 }
 
 // RejectAchievement godoc
-// @Summary Reject achievement (lecturer)
-// @Description Dosen wali menolak achievement dan memberikan catatan penolakan.
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Param body body models.RejectAchievementRequest true "Rejection payload (note)"
-// @Success 200 {object} map[string]interface{} "Achievement rejected (envelope)"
-// @Failure 400 {object} map[string]interface{} "Bad request (invalid JSON / status bukan submitted)"
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
-// @Failure 403 {object} map[string]interface{} "Forbidden (not advisor)"
-// @Failure 404 {object} map[string]interface{} "Achievement/reference not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements/{id}/reject [post]
+// @Summary      Reject achievement
+// @Description  Dosen menolak prestasi dan memberikan catatan
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        id    path   string  true  "Mongo Achievement ID"
+// @Param        body  body   models.RejectAchievementRequest  true  "Rejection data"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "Achievement rejected (envelope)"
+// @Failure      400  {object}  map[string]interface{}  "Bad request (invalid JSON / status bukan submitted)"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not advisor)"
+// @Failure      404  {object}  map[string]interface{}  "Achievement/reference not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /achievements/{id}/reject [post]
 func RejectAchievement(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -566,14 +571,15 @@ func RejectAchievement(c *fiber.Ctx) error {
 	return helper.APIResponse(c, 200, "Achievement rejected", nil)
 }
 
-// UploadAchievementFile godoc
-// @Summary Upload attachment for achievement
-// @Description Mahasiswa meng-upload file lampiran untuk achievement miliknya. Menggunakan multipart/form-data dengan field `file`.
-// @Tags Achievements
-// @Accept multipart/form-data
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Param file formData file true "File attachment"
+// UploadAttachment godoc
+// @Summary      Upload achievement attachment
+// @Description  Mengunggah file (sertifikat / bukti prestasi) ke achievement
+// @Tags         Achievements
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        id     path   string  true   "Mongo Achievement ID"
+// @Param        file   formData file   true  "File attachment"
+// @Security     BearerAuth
 // @Success 201 {object} map[string]interface{} "Attachment uploaded (envelope)"
 // @Failure 400 {object} map[string]interface{} "Bad request (no file / invalid form)"
 // @Failure 401 {object} map[string]interface{} "Unauthorized"
@@ -659,17 +665,18 @@ func UploadAchievementFile(c *fiber.Ctx) error {
 }
 
 // GetAchievementHistory godoc
-// @Summary Get achievement history & timeline
-// @Description Mengambil reference, achievement (jika ada), dan riwayat event (created, submitted, verified, rejected, attachment_uploaded, last_updated).
-// @Tags Achievements
-// @Accept json
-// @Produce json
-// @Param id path string true "Achievement Mongo ID"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data:{reference,achievement,history}}"
-// @Failure 400 {object} map[string]interface{} "Invalid achievement ID"
-// @Failure 404 {object} map[string]interface{} "Achievement reference not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /achievements/{id}/history [get]
+// @Summary      Get achievement history & timeline
+// @Description  Mengambil reference, achievement (jika ada), dan riwayat event (created, submitted, verified, rejected, attachment_uploaded, last_updated).
+// @Tags         Achievements
+// @Accept       json
+// @Produce      json
+// @Param        id   path   string  true  "Achievement Mongo ID"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "envelope {status,message,data:{reference,achievement,history}}"
+// @Failure      400  {object}  map[string]interface{} "Invalid achievement ID"
+// @Failure      404  {object}  map[string]interface{} "Achievement reference not found"
+// @Failure      500  {object}  map[string]interface{} "error response"
+// @Router       /achievements/{id}/history [get]
 func GetAchievementHistory(c *fiber.Ctx) error {
 	id := c.Params("id") // mongo hex id
 

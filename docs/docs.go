@@ -19,7 +19,12 @@ const docTemplate = `{
     "paths": {
         "/achievements": {
             "get": {
-                "description": "Mengambil daftar prestasi. Opsional filter by studentId dan type.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil daftar prestasi. Bisa difilter studentId dan type.",
                 "consumes": [
                     "application/json"
                 ],
@@ -46,14 +51,23 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "envelope {status,message,data}",
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Achievement"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "500": {
-                        "description": "error response",
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -62,7 +76,12 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Mahasiswa mengajukan achievement baru sebagai draft. Field seperti studentId, status, points, attachments akan di-set oleh server.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Menambahkan prestasi baru ke MongoDB \u0026 reference ke PostgreSQL",
                 "consumes": [
                     "application/json"
                 ],
@@ -72,28 +91,28 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Create new achievement (draft)",
+                "summary": "Create new achievement",
                 "parameters": [
                     {
-                        "description": "Achievement payload (tanpa studentId, status, points, dll)",
+                        "description": "Achievement payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.CreateAchievementRequest"
+                            "$ref": "#/definitions/models.Achievement"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "envelope {status,message,data:{id}}",
+                        "description": "Created",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad request (invalid JSON/body validation)",
+                        "description": "Bad Request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -105,27 +124,18 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
-                    },
-                    "403": {
-                        "description": "Student profile not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "error response",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
                     }
                 }
             }
         },
         "/achievements/{id}": {
             "get": {
-                "description": "Mengambil detail achievement berdasarkan Mongo ID.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil detail prestasi berdasarkan ID Mongo",
                 "consumes": [
                     "application/json"
                 ],
@@ -135,11 +145,11 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Get achievement by ID",
+                "summary": "Get achievement detail",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Achievement Mongo ID",
+                        "description": "Mongo Achievement ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -147,14 +157,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "envelope {status,message,data}",
+                        "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/models.Achievement"
                         }
                     },
-                    "400": {
-                        "description": "Invalid ID format",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -166,18 +175,16 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
-                    },
-                    "500": {
-                        "description": "error response",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
                     }
                 }
             },
             "delete": {
-                "description": "Menghapus achievement draft oleh mahasiswa. Hanya status draft yang boleh dihapus.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Menandai prestasi sebagai deleted di Mongo \u0026 PostgreSQL (soft delete)",
                 "consumes": [
                     "application/json"
                 ],
@@ -187,11 +194,11 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Delete achievement (student)",
+                "summary": "Delete (soft) achievement",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Achievement Mongo ID",
+                        "description": "Mongo Achievement ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -243,7 +250,12 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Partial update achievement oleh mahasiswa. Field tertentu (status, points, studentId, dll) tidak boleh diubah.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengupdate field tertentu pada achievement",
                 "consumes": [
                     "application/json"
                 ],
@@ -253,11 +265,11 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Update achievement (student)",
+                "summary": "Update achievement",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Achievement Mongo ID",
+                        "description": "Mongo Achievement ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -268,7 +280,8 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.UpdateAchievementRequest"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 ],
@@ -320,7 +333,12 @@ const docTemplate = `{
         },
         "/achievements/{id}/attachments": {
             "post": {
-                "description": "Mahasiswa meng-upload file lampiran untuk achievement miliknya. Menggunakan multipart/form-data dengan field ` + "`" + `file` + "`" + `.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengunggah file (sertifikat / bukti prestasi) ke achievement",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -330,11 +348,11 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Upload attachment for achievement",
+                "summary": "Upload achievement attachment",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Achievement Mongo ID",
+                        "description": "Mongo Achievement ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -395,6 +413,11 @@ const docTemplate = `{
         },
         "/achievements/{id}/history": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Mengambil reference, achievement (jika ada), dan riwayat event (created, submitted, verified, rejected, attachment_uploaded, last_updated).",
                 "consumes": [
                     "application/json"
@@ -449,7 +472,12 @@ const docTemplate = `{
         },
         "/achievements/{id}/reject": {
             "post": {
-                "description": "Dosen wali menolak achievement dan memberikan catatan penolakan.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Dosen menolak prestasi dan memberikan catatan",
                 "consumes": [
                     "application/json"
                 ],
@@ -459,17 +487,17 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Reject achievement (lecturer)",
+                "summary": "Reject achievement",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Achievement Mongo ID",
+                        "description": "Mongo Achievement ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Rejection payload (note)",
+                        "description": "Rejection data",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -526,7 +554,12 @@ const docTemplate = `{
         },
         "/achievements/{id}/submit": {
             "post": {
-                "description": "Mahasiswa meng-submit achievement draft untuk diverifikasi dosen wali.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mahasiswa mengirim prestasi agar diverifikasi dosen",
                 "consumes": [
                     "application/json"
                 ],
@@ -536,11 +569,11 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Submit achievement for verification",
+                "summary": "Submit achievement",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Achievement Mongo ID",
+                        "description": "Mongo Achievement ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -594,7 +627,12 @@ const docTemplate = `{
         },
         "/achievements/{id}/verify": {
             "post": {
-                "description": "Dosen wali memverifikasi achievement dan memberikan poin.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Dosen memverifikasi prestasi dan memberi poin",
                 "consumes": [
                     "application/json"
                 ],
@@ -604,17 +642,17 @@ const docTemplate = `{
                 "tags": [
                     "Achievements"
                 ],
-                "summary": "Verify achievement (lecturer)",
+                "summary": "Verify achievement",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Achievement Mongo ID",
+                        "description": "Mongo Achievement ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Verification payload (points)",
+                        "description": "Verification data",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -671,7 +709,12 @@ const docTemplate = `{
         },
         "/admin/users": {
             "get": {
-                "description": "Mengambil daftar semua user (hanya untuk admin).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil daftar semua user (khusus admin)",
                 "consumes": [
                     "application/json"
                 ],
@@ -684,7 +727,21 @@ const docTemplate = `{
                 "summary": "Get all users (admin)",
                 "responses": {
                     "200": {
-                        "description": "envelope {status,message,data} berisi array user",
+                        "description": "envelope {status,message,data:[users]}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (not admin)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -700,6 +757,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Admin membuat user baru. Password akan di-hash sebelum disimpan.",
                 "consumes": [
                     "application/json"
@@ -724,14 +786,28 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "envelope {status,message,data} berisi user baru",
+                        "description": "envelope {status,message,data:user}",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "invalid request body / validation error",
+                        "description": "Validation error / invalid payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (not admin)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -749,7 +825,12 @@ const docTemplate = `{
         },
         "/admin/users/{id}": {
             "get": {
-                "description": "Mengambil detail user berdasarkan ID (UUID).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil detail user berdasarkan ID (UUID)",
                 "consumes": [
                     "application/json"
                 ],
@@ -771,14 +852,28 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "envelope {status,message,data} berisi user",
+                        "description": "envelope {status,message,data:user}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (not admin)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "user not found",
+                        "description": "User not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -794,7 +889,12 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Admin mengubah data user (email, username, full name, role, status aktif).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin mengubah data user (email, username, full name, role, status aktif)",
                 "consumes": [
                     "application/json"
                 ],
@@ -825,21 +925,35 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "envelope {status,message,data} berisi user terupdate",
+                        "description": "envelope {status,message,data:user}",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "invalid request body / email already used / invalid role_id",
+                        "description": "Invalid payload / email already used / invalid role",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (not admin)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "user not found",
+                        "description": "User not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -855,6 +969,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Admin menghapus user berdasarkan ID.",
                 "consumes": [
                     "application/json"
@@ -883,6 +1002,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (not admin)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "user not found",
                         "schema": {
@@ -902,6 +1035,11 @@ const docTemplate = `{
         },
         "/admin/users/{id}/role": {
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Admin mengubah role user (hanya role, tanpa mengubah field lain).",
                 "consumes": [
                     "application/json"
@@ -946,6 +1084,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (not admin)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "user not found",
                         "schema": {
@@ -965,7 +1117,7 @@ const docTemplate = `{
         },
         "/auth/login": {
             "post": {
-                "description": "Autentikasi user menggunakan email+password atau NIM+password, mengembalikan JWT token dan data user.",
+                "description": "Autentikasi user menggunakan email+password atau NIM+password.\nMengembalikan JWT token, data user, dan permissions.",
                 "consumes": [
                     "application/json"
                 ],
@@ -975,10 +1127,10 @@ const docTemplate = `{
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Login user (email atau NIM)",
+                "summary": "Login user",
                 "parameters": [
                     {
-                        "description": "Login payload (email+password atau nim+password)",
+                        "description": "Login payload (email+password atau NIM+password)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1021,7 +1173,12 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
-                "description": "Melakukan logout user yang sedang login (misalnya dengan blacklist token atau update state di server).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Logout user yang sedang login (invalidate token / update state server).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1064,7 +1221,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Mengambil profil user yang sedang login berdasarkan JWT (field user_id pada context).",
+                "description": "Mengambil profil user yang sedang login berdasarkan JWT.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1109,7 +1266,7 @@ const docTemplate = `{
         },
         "/auth/refresh": {
             "post": {
-                "description": "Menerima token lama (masih valid) dan mengembalikan token baru dengan data user terbaru.",
+                "description": "Menerima token lama (masih valid) dan mengembalikan token baru.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1165,6 +1322,11 @@ const docTemplate = `{
         },
         "/lecturers": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Mengambil daftar semua dosen.",
                 "consumes": [
                     "application/json"
@@ -1184,6 +1346,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "error response",
                         "schema": {
@@ -1196,7 +1372,12 @@ const docTemplate = `{
         },
         "/lecturers/{id}/advisees": {
             "get": {
-                "description": "Mengambil daftar mahasiswa bimbingan seorang dosen beserta prestasinya dengan pagination.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil daftar mahasiswa bimbingan seorang dosen beserta prestasinya (pagination).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1206,7 +1387,7 @@ const docTemplate = `{
                 "tags": [
                     "Lecturers"
                 ],
-                "summary": "Get lecturer's advisees and their achievements",
+                "summary": "Get lecturer's advisees and achievements",
                 "parameters": [
                     {
                         "type": "string",
@@ -1236,6 +1417,34 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "400": {
+                        "description": "Invalid lecturer ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (not advisor)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Lecturer not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "error response",
                         "schema": {
@@ -1248,6 +1457,12 @@ const docTemplate = `{
         },
         "/statistics/global": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil statistik global prestasi berdasarkan role:\n- admin: melihat semua data\n- dosen_wali: hanya prestasi mahasiswa bimbingannya\n- mahasiswa: hanya prestasi milik sendiri",
                 "consumes": [
                     "application/json"
                 ],
@@ -1267,14 +1482,14 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized (role/user_id tidak tersedia)",
+                        "description": "Unauthorized (role / user_id tidak tersedia)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "403": {
-                        "description": "Forbidden (profil tidak ditemukan)",
+                        "description": "Forbidden (profil dosen/mahasiswa tidak ditemukan)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1292,7 +1507,12 @@ const docTemplate = `{
         },
         "/statistics/students/{id}": {
             "get": {
-                "description": "Mengambil statistik dan laporan prestasi untuk satu mahasiswa berdasarkan student ID (UUID Postgres).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil statistik dan laporan prestasi untuk satu mahasiswa.\nBerdasarkan student ID (UUID dari PostgreSQL).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1302,7 +1522,7 @@ const docTemplate = `{
                 "tags": [
                     "Statistics"
                 ],
-                "summary": "Get single student report",
+                "summary": "Get student report",
                 "parameters": [
                     {
                         "type": "string",
@@ -1320,6 +1540,27 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (akses bukan admin / dosen wali)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Student not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "error response",
                         "schema": {
@@ -1332,7 +1573,12 @@ const docTemplate = `{
         },
         "/students": {
             "get": {
-                "description": "Mengambil daftar mahasiswa. Optional filter by advisorId dan free-text query q.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil daftar mahasiswa.\nOptional filter by advisorId dan free-text query.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1353,7 +1599,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Free-text search (nama, npm, dll)",
+                        "description": "Free-text search (nama, NIM, dll)",
                         "name": "q",
                         "in": "query"
                     }
@@ -1361,6 +1607,20 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "envelope {status,message,data}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1378,7 +1638,12 @@ const docTemplate = `{
         },
         "/students/{id}": {
             "get": {
-                "description": "Mengambil detail student berdasarkan ID.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil detail student berdasarkan ID (UUID).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1393,7 +1658,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "uuid",
-                        "description": "Student ID",
+                        "description": "Student ID (UUID)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1402,6 +1667,20 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "envelope {status,message,data}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1426,7 +1705,12 @@ const docTemplate = `{
         },
         "/students/{id}/achievements": {
             "get": {
-                "description": "Mengambil achievement references untuk student. Jika reference memiliki mongoId maka akan di-enrich dengan dokumen MongoDB.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil achievement references milik student.\nJika reference memiliki mongoId, maka akan di-enrich dengan dokumen MongoDB.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1437,19 +1721,19 @@ const docTemplate = `{
                     "Students",
                     "Achievements"
                 ],
-                "summary": "Get student's achievement references (enriched)",
+                "summary": "Get student's achievements",
                 "parameters": [
                     {
                         "type": "string",
                         "format": "uuid",
-                        "description": "Student ID",
+                        "description": "Student ID (UUID)",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Optional status filter (pending, verified, rejected, ...)",
+                        "description": "Optional status filter (draft, submitted, verified, rejected)",
                         "name": "status",
                         "in": "query"
                     }
@@ -1463,6 +1747,20 @@ const docTemplate = `{
                                 "type": "object",
                                 "additionalProperties": true
                             }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
@@ -1484,7 +1782,12 @@ const docTemplate = `{
         },
         "/students/{id}/advisor": {
             "put": {
-                "description": "Update advisorId milik student. body JSON: { \"advisorId\": \"\u003cuuid|null\u003e\" }.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update advisorId milik student.\nBody JSON: { \"advisorId\": \"\u003cuuid|null\u003e\" }.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1499,7 +1802,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "uuid",
-                        "description": "Student ID",
+                        "description": "Student ID (UUID)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1529,6 +1832,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "error response",
                         "schema": {
@@ -1541,16 +1858,35 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "models.CreateAchievementRequest": {
+        "models.Achievement": {
             "type": "object",
             "properties": {
                 "achievementType": {
+                    "type": "string"
+                },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Attachment"
+                    }
+                },
+                "createdAt": {
                     "type": "string"
                 },
                 "description": {
                     "type": "string"
                 },
                 "details": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "studentID": {
                     "type": "string"
                 },
                 "tags": {
@@ -1560,6 +1896,26 @@ const docTemplate = `{
                     }
                 },
                 "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Attachment": {
+            "type": "object",
+            "properties": {
+                "fileName": {
+                    "type": "string"
+                },
+                "fileType": {
+                    "type": "string"
+                },
+                "fileURL": {
+                    "type": "string"
+                },
+                "uploadedAt": {
                     "type": "string"
                 }
             }
@@ -1622,29 +1978,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "note": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.UpdateAchievementRequest": {
-            "type": "object",
-            "properties": {
-                "achievementType": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "details": {
-                    "type": "string"
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "title": {
                     "type": "string"
                 }
             }

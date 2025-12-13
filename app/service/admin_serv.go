@@ -10,14 +10,17 @@ import (
 )
 
 // AdminGetAllUsers godoc
-// @Summary Get all users (admin)
-// @Description Mengambil daftar semua user (hanya untuk admin).
-// @Tags Admin - Users
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi array user"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /admin/users [get]
+// @Summary      Get all users (admin)
+// @Description  Mengambil daftar semua user (khusus admin)
+// @Tags         Admin - Users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data:[users]}"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not admin)"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /admin/users [get]
 func AdminGetAllUsers(c *fiber.Ctx) error {
 	users, err := repository.GetAllUsers()
 	if err != nil {
@@ -27,16 +30,19 @@ func AdminGetAllUsers(c *fiber.Ctx) error {
 }
 
 // AdminGetUserByID godoc
-// @Summary Get user by ID (admin)
-// @Description Mengambil detail user berdasarkan ID (UUID).
-// @Tags Admin - Users
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID (UUID)"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi user"
-// @Failure 404 {object} map[string]interface{} "user not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /admin/users/{id} [get]
+// @Summary      Get user by ID (admin)
+// @Description  Mengambil detail user berdasarkan ID (UUID)
+// @Tags         Admin - Users
+// @Accept       json
+// @Produce      json
+// @Param        id   path   string  true  "User ID (UUID)"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data:user}"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not admin)"
+// @Failure      404  {object}  map[string]interface{}  "User not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /admin/users/{id} [get]
 func AdminGetUserByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 	user, err := repository.GetUserByID(id)
@@ -47,16 +53,19 @@ func AdminGetUserByID(c *fiber.Ctx) error {
 }
 
 // AdminCreateUser godoc
-// @Summary Create new user (admin)
-// @Description Admin membuat user baru. Password akan di-hash sebelum disimpan.
-// @Tags Admin - Users
-// @Accept json
-// @Produce json
-// @Param body body models.CreateUserRequest true "User payload"
-// @Success 201 {object} map[string]interface{} "envelope {status,message,data} berisi user baru"
-// @Failure 400 {object} map[string]interface{} "invalid request body / validation error"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /admin/users [post]
+// @Summary      Create new user (admin)
+// @Description  Admin membuat user baru. Password akan di-hash sebelum disimpan.
+// @Tags         Admin - Users
+// @Accept       json
+// @Produce      json
+// @Param        body  body   models.CreateUserRequest  true  "User payload"
+// @Security     BearerAuth
+// @Success      201  {object}  map[string]interface{}  "envelope {status,message,data:user}"
+// @Failure      400  {object}  map[string]interface{}  "Validation error / invalid payload"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not admin)"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /admin/users [post]
 func AdminCreateUser(c *fiber.Ctx) error {
 	var req models.CreateUserRequest
 
@@ -92,18 +101,21 @@ func AdminCreateUser(c *fiber.Ctx) error {
 }
 
 // AdminUpdateUser godoc
-// @Summary Update user (admin)
-// @Description Admin mengubah data user (email, username, full name, role, status aktif).
-// @Tags Admin - Users
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID (UUID)"
-// @Param body body models.UpdateUserRequest true "User update payload"
-// @Success 200 {object} map[string]interface{} "envelope {status,message,data} berisi user terupdate"
-// @Failure 400 {object} map[string]interface{} "invalid request body / email already used / invalid role_id"
-// @Failure 404 {object} map[string]interface{} "user not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /admin/users/{id} [put]
+// @Summary      Update user (admin)
+// @Description  Admin mengubah data user (email, username, full name, role, status aktif)
+// @Tags         Admin - Users
+// @Accept       json
+// @Produce      json
+// @Param        id    path   string  true  "User ID (UUID)"
+// @Param        body  body   models.UpdateUserRequest  true  "User update payload"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "envelope {status,message,data:user}"
+// @Failure      400  {object}  map[string]interface{}  "Invalid payload / email already used / invalid role"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not admin)"
+// @Failure      404  {object}  map[string]interface{}  "User not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /admin/users/{id} [put]
 func AdminUpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var req models.UpdateUserRequest
@@ -146,16 +158,19 @@ func AdminUpdateUser(c *fiber.Ctx) error {
 }
 
 // AdminDeleteUser godoc
-// @Summary Delete user (admin)
-// @Description Admin menghapus user berdasarkan ID.
-// @Tags Admin - Users
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID (UUID)"
-// @Success 200 {object} map[string]interface{} "user deleted (envelope)"
-// @Failure 404 {object} map[string]interface{} "user not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /admin/users/{id} [delete]
+// @Summary      Delete user (admin)
+// @Description  Admin menghapus user berdasarkan ID.
+// @Tags         Admin - Users
+// @Accept       json
+// @Produce      json
+// @Param        id   path   string  true  "User ID (UUID)"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "user deleted (envelope)"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not admin)"
+// @Failure      404  {object}  map[string]interface{}  "user not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /admin/users/{id} [delete]
 func AdminDeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if err := repository.DeleteUser(id); err != nil {
@@ -165,18 +180,21 @@ func AdminDeleteUser(c *fiber.Ctx) error {
 }
 
 // AdminUpdateUserRole godoc
-// @Summary Update user role (admin)
-// @Description Admin mengubah role user (hanya role, tanpa mengubah field lain).
-// @Tags Admin - Users
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID (UUID)"
-// @Param body body models.UpdateUserRoleRequest true "Role update payload"
-// @Success 200 {object} map[string]interface{} "user role updated (envelope)"
-// @Failure 400 {object} map[string]interface{} "invalid request body"
-// @Failure 404 {object} map[string]interface{} "user not found"
-// @Failure 500 {object} map[string]interface{} "error response"
-// @Router /admin/users/{id}/role [put]
+// @Summary      Update user role (admin)
+// @Description  Admin mengubah role user (hanya role, tanpa mengubah field lain).
+// @Tags         Admin - Users
+// @Accept       json
+// @Produce      json
+// @Param        id    path   string  true  "User ID (UUID)"
+// @Param        body  body   models.UpdateUserRoleRequest  true  "Role update payload"
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}  "user role updated (envelope)"
+// @Failure      400  {object}  map[string]interface{}  "invalid request body"
+// @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not admin)"
+// @Failure      404  {object}  map[string]interface{}  "user not found"
+// @Failure      500  {object}  map[string]interface{}  "error response"
+// @Router       /admin/users/{id}/role [put]
 func AdminUpdateUserRole(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var req models.UpdateUserRoleRequest

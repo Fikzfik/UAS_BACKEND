@@ -192,22 +192,45 @@ func UpdateUser(id string, user *models.User) (*models.User, error) {
 }
 
 func DeleteUser(id string) error {
-	query := `DELETE FROM users WHERE id = $1`
-	result, err := database.PSQL.Exec(query, id)
+	tx, err := database.PSQL.Begin()
 	if err != nil {
+		return err
+	}
+
+	// Delete from students if exists
+	_, err = tx.Exec(`DELETE FROM students WHERE user_id = $1::uuid`, id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete from lecturers if exists
+	_, err = tx.Exec(`DELETE FROM lecturers WHERE user_id = $1::uuid`, id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	query := `DELETE FROM users WHERE id = $1::uuid`
+
+	result, err := tx.Exec(query, id)
+	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
 	if rowsAffected == 0 {
+		tx.Rollback()
 		return errors.New("user not found")
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func UpdateUserRole(id string, roleID string) (*models.User, error) {

@@ -4,6 +4,7 @@ import (
 	"UAS_GO/app/models"
 	"UAS_GO/app/repository"
 	"UAS_GO/helper"
+	"log"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -133,14 +134,6 @@ func AdminUpdateUser(c *fiber.Ctx) error {
 		return helper.BadRequest(c, "email already used by another user")
 	}
 
-	validRole, err := repository.IsRoleExists(req.RoleID)
-	if err != nil {
-		return helper.InternalError(c, "failed to check role id")
-	}
-	if !validRole {
-		return helper.BadRequest(c, "invalid role_id")
-	}
-
 	user := &models.User{
 		Email:    req.Email,
 		Username: req.Username,
@@ -173,7 +166,9 @@ func AdminUpdateUser(c *fiber.Ctx) error {
 // @Router       /admin/users/{id} [delete]
 func AdminDeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
+	log.Println("DELETE USER ID:", id)
 	if err := repository.DeleteUser(id); err != nil {
+		log.Println("DELETE ERROR:", err)
 		return helper.NotFound(c, "user not found")
 	}
 	return helper.APIResponse(c, fiber.StatusOK, "user deleted", nil)

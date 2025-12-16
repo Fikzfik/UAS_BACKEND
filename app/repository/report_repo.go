@@ -3,11 +3,14 @@ package repository
 import (
 	"UAS_GO/database"
 	"context"
-	"go.mongodb.org/mongo-driver/bson"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // === Global Statistics (Admin / Dosen / Mahasiswa) ===
+//
+//go:noinline
 func GetStatistics(filter bson.M) (map[string]any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -66,6 +69,8 @@ func GetStatistics(filter bson.M) (map[string]any, error) {
 }
 
 // === Student Specific Statistics ===
+//
+//go:noinline
 func GetStudentStatistics(studentID string) (map[string]any, error) {
 	filter := bson.M{"studentId": studentID}
 	return GetStatistics(filter)

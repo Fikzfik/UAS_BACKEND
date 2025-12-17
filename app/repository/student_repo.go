@@ -23,8 +23,7 @@ func GetAllStudents(advisorId string, q string) ([]map[string]any, error) {
 			'programStudy', s.program_study,
 			'academicYear', s.academic_year,
 			'advisorId', s.advisor_id,
-			'createdAt', s.created_at,
-			'updatedAt', s.updated_at
+			'createdAt', s.created_at
 		)
 		FROM students s
 		LEFT JOIN users u ON u.id = s.user_id
@@ -163,7 +162,7 @@ func UpdateStudentAdvisor(studentID string, advisorId *string) error {
 	defer cancel()
 
 	if advisorId == nil {
-		res, err := database.PSQL.ExecContext(ctx, "UPDATE students SET advisor_id = NULL, updated_at = NOW() WHERE id = $1", studentID)
+		res, err := database.PSQL.ExecContext(ctx, "UPDATE students SET advisor_id = NULL WHERE id = $1", studentID)
 		if err != nil {
 			return err
 		}
@@ -174,7 +173,7 @@ func UpdateStudentAdvisor(studentID string, advisorId *string) error {
 		return nil
 	}
 
-	res, err := database.PSQL.ExecContext(ctx, "UPDATE students SET advisor_id = $1, updated_at = NOW() WHERE id = $2", *advisorId, studentID)
+	res, err := database.PSQL.ExecContext(ctx, "UPDATE students SET advisor_id = $1 WHERE id = $2", *advisorId, studentID)
 	if err != nil {
 		return err
 	}

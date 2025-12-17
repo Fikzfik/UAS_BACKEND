@@ -29,11 +29,11 @@ func GetAllAchievements(studentId string, achType string) ([]models.Achievement,
 	if studentId != "" {
 		filter["studentId"] = studentId
 	}
-
+	fmt.Println(studentId,"student id")
 	if achType != "" {
 		filter["achievementType"] = achType
 	}
-
+	fmt.Println(achType,"achievement type")
 	cursor, err := collection.Find(context.Background(), filter)
 	if err != nil {
 		return nil, err

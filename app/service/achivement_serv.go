@@ -20,22 +20,33 @@ var ErrNotFound = mongo.ErrNoDocuments
 
 // GetAllAchievements godoc
 // @Summary      List achievements
-// @Description  Mengambil daftar prestasi. Bisa difilter studentId dan type.
+// @Description  Mengambil daftar prestasi milik user yang sedang login.
 // @Tags         Achievements
 // @Accept       json
 // @Produce      json
-// @Param        studentId  query   string  false  "Filter by student UUID"
 // @Param        type       query   string  false  "Filter by achievement type"
 // @Security     BearerAuth
 // @Success      200  {array}   models.Achievement
 // @Failure      401  {object}  map[string]interface{}  "Unauthorized"
+// @Failure      403  {object}  map[string]interface{}  "Forbidden (not a student)"
 // @Failure      500  {object}  map[string]interface{}  "Internal Server Error"
 // @Router       /achievements [get]
 func GetAllAchievements(c *fiber.Ctx) error {
-	studentId := c.Query("studentId")
 	achType := c.Query("type")
 
-	data, err := repository.GetAllAchievements(studentId, achType)
+	// Get authenticated user_id
+	currentUserID := helper.GetUserID(c)
+	if currentUserID == "" {
+		return helper.Unauthorized(c, "Unauthorized")
+	}
+	fmt.Println(currentUserID,"current user id")
+	// Resolve studentID from user_id
+	studentID, err := repository.GetStudentIDByUserID(currentUserID)
+	if err != nil {
+		return helper.Forbidden(c, "Student profile not found")
+	}
+
+	data, err := repository.GetAllAchievements(studentID, achType)
 	if err != nil {
 		return helper.InternalError(c, err.Error())
 	}
@@ -424,7 +435,6 @@ func SubmitAchievement(c *fiber.Ctx) error {
 		nil,
 	)
 }
-
 
 // VerifyAchievement godoc
 // @Summary      Verify achievement
